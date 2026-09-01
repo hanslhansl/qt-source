@@ -1,7 +1,7 @@
-# Qt 6.12.0 — Corresponding Source
+# Qt 6.12.0 — Source
 
 This repository contains the source code for Qt 6.12.0.
-It serves as Archive for other Projects, mainly for licensing purposes but also for a simplified build process.
+It serves as archive for other projects, mainly for licensing purposes but also for a simplified build process.
 
 The source is based on the Qt 6.12.0 source distribution obtained from the official Qt installer.
 
