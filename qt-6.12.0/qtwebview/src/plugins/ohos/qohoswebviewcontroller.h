@@ -1,0 +1,69 @@
+// Copyright (C) 2025 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+#ifndef QOHOSWEBVIEWCONTROLLER_H
+#define QOHOSWEBVIEWCONTROLLER_H
+
+#include "qohoswebcomponentlistener.h"
+#include <QtCore/private/qcore_ohos_p.h>
+#include <QtCore/private/qohoscommon_p.h>
+#include <QtCore/qglobal.h>
+#include <QtWebView/qwebviewsettings.h>
+#include <arkui/native_node.h>
+#include <memory>
+#include <string>
+
+QT_BEGIN_NAMESPACE
+
+class QOhosWebViewController
+{
+public:
+    QOhosWebViewController(const QOhosWebViewController &) = delete;
+    QOhosWebViewController &operator=(const QOhosWebViewController &) = delete;
+
+    virtual ~QOhosWebViewController();
+
+    virtual ::ArkUI_NodeHandle createEmbeddedWebComponentNodeOrFail(
+        std::shared_ptr<QOhosWebComponentListener> webComponentListener,
+        QObject *webComponentListenerContext) = 0;
+
+    virtual bool tryLoadUrl(const std::string &url) = 0;
+    virtual std::string getUrl() = 0;
+
+    virtual bool tryLoadHtml(const std::string &data, const std::string &mimeType,
+                             const std::string &encoding, const std::string &baseUrl,
+                             const std::string &historyUrl) = 0;
+
+    virtual bool canGoBack() = 0;
+    virtual bool canGoForward() = 0;
+
+    virtual void goBack() = 0;
+    virtual void goForward() = 0;
+
+    virtual void refresh() = 0;
+    virtual void stop() = 0;
+
+    virtual std::optional<std::string> tryRunJavaScript(const std::string &script) = 0;
+
+    virtual void setAttribute(QWebViewSettings::WebAttribute attribute, bool enabled) = 0;
+    virtual bool testAttribute(QWebViewSettings::WebAttribute attribute) const = 0;
+
+    virtual bool trySetCookie(const std::string &url, const std::string &cookie) = 0;
+    virtual std::optional<std::string> tryFetchCookie(const std::string &url) = 0;
+    virtual bool tryClearAllCookies() = 0;
+    virtual std::vector<std::pair<std::string, std::string>> fetchAllCookies() = 0;
+
+    virtual void bindQrcSchemeHandler() = 0;
+
+    virtual bool trySetCustomUserAgent(const std::string &userAgent) = 0;
+
+protected:
+    QOhosWebViewController();
+};
+
+std::shared_ptr<QOhosWebViewController> makeOhosWebViewController();
+void initializeOhosWebEngine();
+
+QT_END_NAMESPACE
+
+#endif // QOHOSWEBVIEWCONTROLLER_H

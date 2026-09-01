@@ -1,0 +1,150 @@
+{{>licenseInfo}}
+{{#models}}{{#model}}/*
+ * {{classFilename}}.h
+ *
+ * {{description}}
+ */
+
+#ifndef {{#lambda.uppercase}}{{{classFilename}}}{{/lambda.uppercase}}_H
+#define {{#lambda.uppercase}}{{{classFilename}}}{{/lambda.uppercase}}_H
+
+#include "{{packageNameLowerCase}}exports.h"
+{{#isEnum}}
+#include "{{prefixLowerCase}}enum.h"
+{{/isEnum}}
+{{^isEnum}}
+#include "{{prefixLowerCase}}object.h"
+{{/isEnum}}
+{{#enableQmlCode}}
+#include <QtQmlIntegration/qqmlintegration.h>
+{{/enableQmlCode}}
+{{#composedSchemas.oneOf}}
+{{#-first}}
+#include <variant>
+{{/-first}}
+{{/composedSchemas.oneOf}}
+
+{{/model}}{{/models}}
+{{#imports}}
+{{{import}}}
+{{/imports}}
+
+{{#models}}
+{{#model}}
+{{#cppNamespaceDeclarations}}
+namespace {{this}} {
+{{/cppNamespaceDeclarations}}
+{{#vendorExtensions.x-has-forward-declarations}}
+{{#vendorExtensions.x-forward-declarations}}{{.}}
+{{/vendorExtensions.x-forward-declarations}}{{/vendorExtensions.x-has-forward-declarations}}
+class {{packageNameUpperCase}}_EXPORT {{classname}} : public {{cppCommonNamespace}}::{{prefix}}{{^isEnum}}Object{{/isEnum}}{{#isEnum}}Enum{{/isEnum}} {
+    Q_GADGET{{#enableQmlCode}}
+    QML_VALUE_TYPE(data{{classname}}){{/enableQmlCode}}
+
+{{^isEnum}}
+{{^composedSchemas}}
+{{#vars}}
+    Q_PROPERTY({{{dataType}}} {{name}} READ {{getter}} WRITE {{setter}})
+{{/vars}}
+{{/composedSchemas}}
+{{#composedSchemas.oneOf}}
+    Q_PROPERTY({{{dataType}}} {{name}} READ {{getter}} WRITE {{setter}})
+{{/composedSchemas.oneOf}}
+{{/isEnum}}
+public:
+{{#composedSchemas.oneOf}}
+    Q_IMPLICIT {{classname}}({{#complexType}}const {{/complexType}}{{{dataType}}} {{#complexType}}&{{/complexType}}value);
+{{/composedSchemas.oneOf}}
+    {{classname}}();
+{{^composedSchemas}}
+    Q_IMPLICIT {{classname}}(const QString &json);
+{{/composedSchemas}}
+    ~{{classname}}() override;
+
+    QString asJson() const override;
+    QJsonValue asJsonValue() const override;
+    void fromJsonValue(const QJsonValue &json) override;
+    void fromJson(const QString &jsonString) override;
+
+{{^isEnum}}
+{{^composedSchemas}}
+{{#vars}}
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}{{{dataType}}} {{getter}}() const;
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}void {{setter}}(const {{{dataType}}} &{{name}});
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}bool is{{#camelcase}}{{name}}{{/camelcase}}ValueSet() const;
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}bool is{{#camelcase}}{{name}}{{/camelcase}}ValueValid() const;
+
+{{/vars}}
+{{/composedSchemas}}
+{{#composedSchemas.oneOf}}
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}{{{dataType}}} {{getter}}() const;
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}void {{setter}}(const {{{dataType}}} &{{name}});
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}bool is{{#camelcase}}{{name}}{{/camelcase}}Set() const;
+    {{#deprecated}}Q_DECL_DEPRECATED {{/deprecated}}bool is{{#camelcase}}{{name}}{{/camelcase}}Valid() const;
+
+{{/composedSchemas.oneOf}}
+{{/isEnum}}
+{{#isEnum}}
+{{#allowableValues}}
+    enum class e{{classname}} {{#enumVars}}{{#-first}}{{^isString}}: int {{/isString}}{{/-first}}{{/enumVars}}{
+        INVALID_VALUE_OPENAPI_GENERATED = 0,
+    {{#enumVars}}
+        {{#enumDescription}}
+        /**
+        * {{.}}
+        */
+        {{/enumDescription}}
+        {{{name}}}{{^-last}},{{/-last}}
+    {{/enumVars}}
+    };{{/allowableValues}}
+    {{classname}}::e{{classname}} getValue() const;
+    void setValue({{classname}}::e{{classname}} value);
+{{/isEnum}}
+    bool isSet() const override;
+    bool isValid() const override;
+
+private:
+    void initializeModel();
+{{^isEnum}}
+{{^composedSchemas}}
+{{#vars}}
+    {{{dataType}}} m_{{name}};
+    bool m_{{name}}IsSet;
+    bool m_{{name}}IsValid;
+{{/vars}}
+{{/composedSchemas}}
+{{#composedSchemas.oneOf}}
+    bool m_{{name}}IsSet;
+    bool m_{{name}}IsValid;
+
+{{/composedSchemas.oneOf}}
+{{#composedSchemas.oneOf}}
+{{#-first}}
+    std::variant<
+        std::monostate
+        , {{{dataType}}}
+{{/-first}}
+{{^-first}}
+        , {{{dataType}}}
+{{/-first}}
+{{#-last}}
+    > m_oneOf;
+{{/-last}}
+{{/composedSchemas.oneOf}}
+{{/isEnum}}
+{{#isEnum}}
+    e{{classname}} m_value;
+    bool m_valueIsSet;
+    bool m_valueIsValid;
+{{/isEnum}}
+};
+
+{{#cppNamespaceDeclarations}}
+} // namespace {{this}}
+{{/cppNamespaceDeclarations}}
+
+Q_DECLARE_METATYPE({{#cppNamespaceDeclarations}}{{this}}::{{/cppNamespaceDeclarations}}{{classname}})
+
+#endif // {{#lambda.uppercase}}{{{classFilename}}}{{/lambda.uppercase}}_H
+{{/model}}
+{{/models}}

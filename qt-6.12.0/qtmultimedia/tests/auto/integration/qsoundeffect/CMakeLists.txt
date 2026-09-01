@@ -1,0 +1,20 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
+#####################################################################
+## tst_qsoundeffect Test:
+#####################################################################
+
+qt_internal_multimedia_add_test(tst_qsoundeffect
+    NEEDS_MEDIA_BACKEND_PLUGINS
+    SOURCES
+        tst_qsoundeffect.cpp
+    LIBRARIES
+        Qt::Core
+        Qt::MultimediaPrivate
+        Qt::MultimediaTestLibPrivate
+    TESTDATA
+        "test.wav"
+        "test_corrupted.wav"
+        "test_tone.wav"
+)

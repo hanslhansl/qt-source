@@ -1,0 +1,88 @@
+{{>licenseInfo}}
+#include "{{prefixLowerCase}}object.h"
+
+#include <QtCore/qjsonobject.h>
+
+{{#buildingQtSources}}
+QT_BEGIN_NAMESPACE
+{{/buildingQtSources}}
+
+{{#cppCommonNamespaceDeclarations}}
+namespace {{this}} {
+{{/cppCommonNamespaceDeclarations}}
+
+class {{prefix}}ObjectPrivate
+{
+public:
+    QJsonObject m_jsonObj;
+};
+
+{{prefix}}Object::{{prefix}}Object()
+    : d(new {{prefix}}ObjectPrivate)
+{
+}
+
+{{prefix}}Object::{{prefix}}Object(const QString &json)
+    : d(new {{prefix}}ObjectPrivate)
+{
+    fromJson(json);
+}
+
+{{prefix}}Object::{{prefix}}Object(const {{prefix}}Object &other)
+    : d(std::make_unique<{{prefix}}ObjectPrivate>(*other.d))
+{
+}
+
+{{prefix}}Object &{{prefix}}Object::operator=(const {{prefix}}Object &other)
+{
+    if(this != &other)
+        d = std::make_unique<{{prefix}}ObjectPrivate>(*other.d);
+    return *this;
+}
+
+{{prefix}}Object::{{prefix}}Object({{prefix}}Object &&) noexcept = default;
+{{prefix}}Object &{{prefix}}Object::operator=({{prefix}}Object &&) noexcept = default;
+{{prefix}}Object::~{{prefix}}Object() = default;
+
+QJsonValue {{prefix}}Object::asJsonValue() const
+{
+    return QJsonValue(d->m_jsonObj);
+}
+
+QString {{prefix}}Object::asJson() const
+{
+    const QJsonDocument doc(d->m_jsonObj);
+    const QByteArray bytes = doc.toJson(QJsonDocument::Compact);
+    return QString::fromUtf8(bytes);
+}
+
+void {{prefix}}Object::fromJson(const QString &jsonString)
+{
+    this->fromJsonValue(QJsonValue::fromJson(jsonString.toUtf8()));
+}
+
+void {{prefix}}Object::fromJsonValue(const QJsonValue &json)
+{
+    if (json.isObject())
+        d->m_jsonObj = json.toObject();
+    else
+        d->m_jsonObj = {};
+}
+
+bool {{prefix}}Object::isSet() const
+{
+    return !d->m_jsonObj.empty();
+}
+
+bool {{prefix}}Object::isValid() const
+{
+    return true;
+}
+
+{{#cppCommonNamespaceDeclarations}}
+} // namespace {{this}}
+{{/cppCommonNamespaceDeclarations}}
+
+{{#buildingQtSources}}
+QT_END_NAMESPACE
+{{/buildingQtSources}}

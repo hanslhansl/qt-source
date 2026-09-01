@@ -1,0 +1,7 @@
+# QTBUG-103061
+[touchDragFlickableBehindItemWithHandlers]
+android
+[mouseDragFlickableBehindItemWithHandlers]
+android
+[touchAndDragHandlerOnFlickable]
+android

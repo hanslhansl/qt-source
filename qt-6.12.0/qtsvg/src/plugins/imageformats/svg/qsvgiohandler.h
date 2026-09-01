@@ -1,0 +1,45 @@
+// Copyright (C) 2016 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+// Qt-Security score:significant reason:default
+
+#pragma once
+
+#include <QtGui/qimageiohandler.h>
+
+#ifndef QT_NO_SVGRENDERER
+
+QT_BEGIN_NAMESPACE
+
+class QImage;
+class QByteArray;
+class QIODevice;
+class QVariant;
+class QSvgIOHandlerPrivate;
+
+class QSvgIOHandler : public QImageIOHandler
+{
+public:
+    QSvgIOHandler();
+    ~QSvgIOHandler();
+    bool canRead() const override;
+    bool read(QImage *image) override;
+    static bool canRead(QIODevice *device);
+    QVariant option(ImageOption option) const override;
+    void setOption(ImageOption option, const QVariant & value) override;
+    bool supportsOption(ImageOption option) const override;
+
+    // Animation support for QMovie / AnimatedImage
+    bool jumpToNextImage() override;
+    bool jumpToImage(int imageNumber) override;
+    int loopCount() const override;
+    int imageCount() const override;
+    int nextImageDelay() const override;
+    int currentImageNumber() const override;
+
+private:
+    QSvgIOHandlerPrivate *d;
+};
+
+QT_END_NAMESPACE
+
+#endif // QT_NO_SVGRENDERER

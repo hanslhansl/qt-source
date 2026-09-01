@@ -1,0 +1,11 @@
+{
+    "dependencies": {
+        "ts-node": "^10.9.2",
+        "typescript": "^6.0.2"
+    },
+    "type": "module",
+    "scripts": {
+        "generate":
+                "tsc --downlevelIteration --strictNullChecks --ignoreDeprecations 6.0 --noImplicitAny false ./generate.ts ./3rdparty/metaModel.ts"
+    }
+}

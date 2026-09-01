@@ -1,0 +1,47 @@
+// Copyright (C) 2022 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GFDL-1.3-no-invariants-only
+
+/*!
+\page qtmultimedia-wasm.html
+\title Qt Multimedia on WebAssembly
+\brief Platform notes for WebAssembly
+
+This page covers the availability of Qt Multimedia features on WebAssembly.
+
+\section1 Limitations
+
+\list
+\li Due to its asynchronous nature, some features such as getting a list of
+QMediaDevices may not be readily available and may take some time to request
+permissions and gather the list of devices. With Asyncify/JSPI enabled, device
+enumeration happens synchronously. Otherwise use the audioInputsChanged,
+audioOutputsChanged, and videoInputsChanged signals to react when devices become
+available.
+
+\li Camera and Microphone inputs require user permissions, and can only be used
+in a secure https context. Firefox may require permission to play video and audio.
+
+\li Using and selecting different Codecs/video formats is not currently supported.
+These in the browser are more like suggestions or a request, and may not return
+the selected codec.
+
+\li Playing data from a QIODevice (using \c {setSourceDevice(QIODevice*)}): is partially
+supported for video (entire stream (file) is read into memory at once). Not supported
+for audio. Streaming from a web URL works. Real-time data input streaming is
+not supported.
+
+\li Some advanced features such as spatial 3D audio and (Audio/Video)codecs
+are not currently supported.
+
+\li Files can be served from the/any web server, respective
+of \l{https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS}{CORS}.
+
+\li Although possible, playing large files stored in the application file system
+or in a resource package are discouraged because of the limited size of
+the browser's file storage and memory constraints.
+
+\li Issues may exist when using the Firefox browser on any platform.
+
+\endlist
+
+ */

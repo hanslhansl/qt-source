@@ -1,0 +1,257 @@
+// Copyright (C) 2026 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+// Qt-Security score:significant reason:default
+
+#ifndef QCANVAS2DCONTEXT_P_H
+#define QCANVAS2DCONTEXT_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the Qt API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include "qtcanvas2dglobal_p.h"
+
+#include <QtCanvasPainter/qcanvaspainter.h>
+#include <QtCanvasPainter/qcanvasbrush.h>
+#include <QtCanvasPainter/qcanvaspath.h>
+#include <QtCanvasPainter/qcanvasboxshadow.h>
+
+#include <QtQml/qqml.h>
+#include <QtQml/qqmlcomponent.h>
+#include <QtQml/private/qv4persistent_p.h>
+#include <QtQml/private/qqmlrefcount_p.h>
+
+#include <QtGui/qpainter.h>
+#include <QtGui/qpainterpath.h>
+
+#include <QtCore/qstring.h>
+#include <QtCore/qstack.h>
+#include <QtCore/qqueue.h>
+
+
+QT_BEGIN_NAMESPACE
+
+namespace QV4 {
+    struct ExecutionEngine;
+}
+
+class QCanvas2DItem;
+class QCanvas2DPixmap;
+class QCanvas2DCommandBuffer;
+class QQuickPixmap;
+class QSGTexture;
+
+class Q_CANVAS2D_EXPORT QCanvas2DContext : public QObject
+{
+    Q_OBJECT
+
+public:
+    Q_DISABLE_COPY(QCanvas2DContext)
+
+    enum PaintCommand : quint8 {
+        BeginPath,
+        BeginSolidSubPath,
+        BeginHoleSubPath,
+        ClosePath,
+        MoveTo,
+        LineTo,
+        QuadraticCurveTo,
+        BezierCurveTo,
+        ArcTo,
+        Rect,
+        RoundRect,
+        EllipseRect,
+        Ellipse,
+        Circle,
+        Arc,
+        FillRect,
+        StrokeRect,
+        ClearRect,
+        StrokeColor,
+        FillColor,
+        StrokeStyle,
+        FillStyle,
+        FillRule,
+        Fill,
+        FillWithRule,
+        FillCanvasPath,
+        FillCanvasPathWithRule,
+        Stroke,
+        StrokeCanvasPath,
+        AddCanvasPath,
+        AddCanvasPathRange,
+        SetPathWinding,
+        SetHighQualityStroking,
+        SetWindingEnforce,
+        Clip,
+        ClipRect,
+        ResetClipping,
+        GlobalAlpha,
+        GlobalBrightness,
+        GlobalContrast,
+        GlobalSaturate,
+        GlobalCompositeOperation,
+        LineWidth,
+        LineCap,
+        LineJoin,
+        MiterLimit,
+        TextAlign,
+        TextBaseline,
+        TextWrapMode,
+        TextDirection,
+        Font,
+        FillText,
+        FillTextRect,
+        DrawPixmap,
+        Scale,
+        Rotate,
+        Shear,
+        Translate,
+        Transform,
+        SetTransform,
+        Save,
+        Restore,
+        Reset,
+        DrawBoxShadow,
+        Antialias,
+        TextAntialias,
+        TextLineHeight,
+        CleanupResources,
+        RemovePathGroup,
+    };
+
+    struct State {
+        State()
+            : strokeColor(QColor(Qt::black))
+            , fillColor(QColor(Qt::black))
+            , clip(false)
+            , highQualityStroking(false)
+            , windingEnforce(true)
+            , fillRule(QCanvasPainter::FillRule::NonZero)
+            , globalAlpha(1.0)
+            , globalBrightness(1.0)
+            , globalContrast(1.0)
+            , globalSaturate(1.0)
+            , lineWidth(1)
+            , antialias(1)
+            , textAntialias(1)
+            , textLineHeight(0)
+            , lineCap(QCanvasPainter::LineCap::Butt)
+            , lineJoin(QCanvasPainter::LineJoin::Miter)
+            , miterLimit(10)
+            , globalCompositeOperation(QCanvasPainter::CompositeOperation::SourceOver)
+            , font(QFont(QStringLiteral("sans-serif")))
+            , textAlign(QCanvasPainter::TextAlign::Start)
+            , textBaseline(QCanvasPainter::TextBaseline::Alphabetic)
+            , textWrapMode(QCanvasPainter::WrapMode::NoWrap)
+            , textDirection(QCanvasPainter::TextDirection::Inherit)
+            , pathWinding(QCanvasPainter::PathWinding::CounterClockWise)
+        {
+            font.setPixelSize(10);
+        }
+
+        QPainterPath clipPath;
+        QCanvasBrush strokeStyle;
+        QCanvasBrush fillStyle;
+        QTransform transform;
+        QColor strokeColor;
+        QColor fillColor;
+        bool clip:1;
+        bool highQualityStroking:1;
+        bool windingEnforce:1;
+        QCanvasPainter::FillRule fillRule;
+        qreal globalAlpha;
+        qreal globalBrightness;
+        qreal globalContrast;
+        qreal globalSaturate;
+        qreal lineWidth;
+        qreal antialias;
+        qreal textAntialias;
+        qreal textLineHeight;
+        QCanvasPainter::LineCap lineCap;
+        QCanvasPainter::LineJoin lineJoin;
+        qreal miterLimit;
+        QCanvasPainter::CompositeOperation globalCompositeOperation;
+        QFont font;
+        QCanvasPainter::TextAlign textAlign;
+        QCanvasPainter::TextBaseline textBaseline;
+        QCanvasPainter::WrapMode textWrapMode;
+        QCanvasPainter::TextDirection textDirection;
+        QCanvasPainter::PathWinding pathWinding;
+    };
+
+    QCanvas2DContext(QObject *parent = nullptr);
+    ~QCanvas2DContext();
+
+    QStringList contextNames() const;
+    void init(QCanvas2DItem *canvasItem, const QVariantMap &args);
+    void flush();
+    void sync();
+
+    QV4::ReturnedValue v4value() const;
+    QV4::ExecutionEngine *v4Engine() const;
+    void setV4Engine(QV4::ExecutionEngine *eng);
+
+    QCanvas2DItem* canvas() const { return m_canvas; }
+    QCanvas2DCommandBuffer* buffer() const { return m_buffer; }
+
+    bool bufferValid() const { return m_buffer != nullptr; }
+    void popState();
+    void pushState();
+    void reset();
+
+    // ***** transformations *****
+    void rotate(qreal angle);
+    void scale(qreal x,  qreal y);
+    void shear(qreal h, qreal v);
+    void translate(qreal x, qreal y);
+    void transform(qreal a, qreal b, qreal c, qreal d, qreal e, qreal f);
+    void setTransform(qreal a, qreal b, qreal c, qreal d, qreal e, qreal f);
+
+    // ***** direct rect methods *****
+    void clearRect(qreal x, qreal y, qreal w, qreal h);
+    void fillRect(qreal x, qreal y, qreal w, qreal h);
+    void strokeRect(qreal x, qreal y, qreal w, qreal h);
+
+    // ***** path handling *****
+    void beginPath();
+    void clip();
+    void setClipRect(qreal x, qreal y, qreal w, qreal h);
+    void resetClipping();
+    void fill();
+    void fill(QCanvasPainter::FillRule fillRule);
+    void stroke();
+    void fillPath(const QCanvasPath &path, int pathGroup = -1);
+    void fillPath(const QCanvasPath &path, QCanvasPainter::FillRule fillRule, int pathGroup = -1);
+    void strokePath(const QCanvasPath &path, int pathGroup = -1);
+
+    // ***** other *****
+    void drawText(const QString& text, qreal x, qreal y, bool fill);
+    QQmlRefPointer<QCanvas2DPixmap> createPixmap(const QUrl& url, QSizeF sourceSize = QSizeF());
+    void setGrabbedImage(const QImage& grab);
+    void addImagePattern(const QCanvasImagePattern &pattern, const QString &url, const QImage &image, QCanvasPainter::ImageFlags flags);
+
+    State state;
+    QStack<QCanvas2DContext::State> m_stateStack;
+    QCanvas2DItem *m_canvas = nullptr;
+    QCanvas2DCommandBuffer *m_buffer = nullptr;
+    QPainterPath m_path; // TODO: Remove or make QCanvasPath?
+    QV4::PersistentValue m_fillStyle;
+    QV4::PersistentValue m_strokeStyle;
+    QV4::PersistentValue m_v4path;
+    QV4::ExecutionEngine *m_v4engine;
+    QV4::PersistentValue m_v4value;
+    QImage m_grabbedImage;
+    bool m_grabbed:1;
+};
+
+QT_END_NAMESPACE
+
+#endif // QCANVAS2DCONTEXT_P_H

@@ -1,0 +1,87 @@
+# Copyright (C) 2026 The Qt Company Ltd.
+# SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+#
+# This spec exercises C++ code injection gaps.
+#
+# 1. The server URL {{{url}}}
+# 2. path key – {{{path}}} triple-mustache
+# 3. requestBody media – {{{mediaType}}} triple-mustache
+#    (IANA grammar blocks injection chars; benign value used)
+# 4. license name – {{{licenseName}}} triple-mustache in block comment
+
+openapi: 3.1.1
+servers:
+  # url contains C++ injection characters.
+  - url: 'http://legit.example.com"_s, u"ok"_s, QMap<QString, QOAIServerVariable>())); volatile int _r1_injected = 42; Q_UNUSED(_r1_injected); defaultConf.append(QOAIServerConfiguration(u"http://fallback.example.com'
+    description: "Fallback server"
+info:
+  title: 'Innocent API*/ volatile int _title_injected = 42; Q_UNUSED(_title_injected); /**'
+  description: 'This spec demonstrates various cases */ volatile int _desc_injected = 42; Q_UNUSED(_desc_injected); /**'
+  version: "1.0.0"
+  # license name contains C++ injection characters that attempt to close
+  # the block comment and inject code.
+  license:
+    name: 'MIT*/ volatile int _lic_name_injected = 42; Q_UNUSED(_lic_name_injected); /**'
+    url: "https://imaginary.com/mylicense"
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check endpoint
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  # path key contains C++ injection characters.
+  /items"_s; volatile int _gap1_injected = 1; Q_UNUSED(_gap1_injected); QString _unused = u":
+      get:
+        operationId: getItems
+        summary: Fetch items
+        responses:
+          '200':
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+
+  /upload:
+    post:
+      operationId: uploadFile
+      summary: Upload a file
+      requestBody:
+        required: true
+        content:
+          # media type contains C++ injection characters.
+          'application/json\"_L1); volatile int _gap2_injected = 1; Q_UNUSED(_gap2_injected); auto _unused = QLatin1StringView(\"':
+            schema:
+              type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+  /enumUnknownDefaultCase:
+    get:
+      summary: Test unknown default enum case generation
+      operationId: getEnumValue
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyEnum'
+components:
+  schemas:
+    MyEnum:
+      type: string
+      enum:
+        - status1
+        - status2"_s; volatile int _status_injected = 1; Q_UNUSED(_status_injected); QString _unused = u"

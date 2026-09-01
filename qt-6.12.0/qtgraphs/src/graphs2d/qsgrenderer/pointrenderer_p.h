@@ -1,0 +1,166 @@
+// Copyright (C) 2023 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+// Qt-Security score:significant reason:default
+
+#ifndef POINTRENDERER_H
+#define POINTRENDERER_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtGraphs API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+
+#include <QPainterPath>
+#include <QQuickItem>
+#include <QtGraphs/qabstractseries.h>
+#include <QtQuick/private/qsgdefaultinternalrectanglenode_p.h>
+#include <private/qgraphsglobal_p.h>
+
+#if QT_CONFIG(graphs_2d_high_quality_backend)
+#include <QtQuickShapes/private/qquickshape_p.h>
+#endif
+#if QT_CONFIG(graphs_2d_high_performance_backend)
+#include <QtCanvasPainter/qcanvaspainter.h>
+#endif
+
+QT_BEGIN_NAMESPACE
+
+class QGraphsView;
+class QXYSeries;
+class QLineSeries;
+class QScatterSeries;
+class QSplineSeries;
+class AxisRenderer;
+class QQuickTapHandler;
+class QQuickDragHandler;
+struct QLegendData;
+
+class PointRenderer : public QQuickItem
+{
+    Q_OBJECT
+public:
+
+    PointRenderer(QGraphsView *graph, bool clipPlotArea);
+    ~PointRenderer() override;
+
+    void resetShapePathCount();
+
+#if QT_CONFIG(graphs_2d_high_performance_backend)
+    struct PointPaintData
+    {
+        QPainterPath painterPath;
+        QColor strokeColor;
+        qreal lineWidth;
+        QCanvasPainter::LineCap lineCap;
+    };
+    using PaintSnapshot = QList<PointPaintData>;
+    static void paintSnapshot(const PaintSnapshot &snapshot, QCanvasPainter *p);
+    void synchronizeData();
+    QList<PointPaintData> paintSnapshot() const;
+#endif
+    void handlePolish(QXYSeries *series);
+    void afterPolish(QList<QAbstractSeries *> &cleanupSeries);
+    void updateSeries(QXYSeries *series);
+    void seriesAboutToBeRemoved(QAbstractSeries *series);
+    void afterUpdate(QList<QAbstractSeries *> &cleanupSeries);
+    bool handleHoverMove(QHoverEvent *event);
+
+   QPointF reverseRenderCoordinates(QAbstractSeries *series, qreal x, qreal y);
+
+private:
+    struct PointGroup
+    {
+        QXYSeries *series = nullptr;
+        QPainterPath painterPath;
+        QList<QQuickItem *> markers;
+        QList<QQuickDragHandler *> dragHandlers;
+        QQmlComponent *currentMarker = nullptr;
+        QQmlComponent *previousMarker = nullptr;
+        QList<QRectF> rects;
+        qsizetype colorIndex = -1;
+        bool hover = false;
+#if QT_CONFIG(graphs_2d_high_quality_backend)
+        QQuickShapePath *shapePath = nullptr;
+#endif
+    };
+
+#if QT_CONFIG(graphs_2d_high_performance_backend)
+    PaintSnapshot m_pointPaintSnapshot;
+#endif
+
+    QQmlComponent *m_tempMarker = nullptr;
+
+    QGraphsView *m_graph = nullptr;
+    QMap<QXYSeries *, PointGroup *> m_groups;
+    qsizetype m_currentShapePathIndex = 0;
+
+#if QT_CONFIG(graphs_2d_high_quality_backend)
+    QQuickShape m_shape;
+#endif
+
+    // Point drag variables
+    QPoint m_previousDelta;
+    PointGroup *m_pressedGroup = nullptr;
+    qsizetype m_pressedPointIndex = 0;
+
+    // Render area variables
+    qreal m_maxVertical = 0;
+    qreal m_maxHorizontal = 0;
+    qreal m_verticalOffset = 0;
+    qreal m_horizontalOffset = 0;
+    qreal m_areaWidth = 0;
+    qreal m_areaHeight = 0;
+
+    QQuickTapHandler *m_tapHandler = nullptr;
+
+    qreal defaultSize(QXYSeries *series = nullptr);
+
+    struct SeriesStyle {
+        QColor color;
+        QColor selectedColor;
+        QColor borderColor;
+        qreal borderWidth;
+    };
+
+    SeriesStyle getSeriesStyle(PointGroup *group);
+
+    void calculateRenderCoordinates(AxisRenderer *axisRenderer,
+                                    QAbstractSeries *series,
+                                    qreal origX,
+                                    qreal origY,
+                                    qreal *renderX,
+                                    qreal *renderY);
+    void reverseRenderCoordinates(AxisRenderer *axisRenderer,
+                                  QAbstractSeries *series,
+                                  qreal renderX,
+                                  qreal renderY,
+                                  qreal *origX,
+                                  qreal *origY);
+    void updatePointDelegate(
+        QXYSeries *series, PointGroup *group, qsizetype pointIndex, qreal x, qreal y);
+    void hidePointDelegates(QXYSeries *series);
+    void updateLegendData(QXYSeries *series, QLegendData &legendData);
+
+    void onSingleTapped(QEventPoint eventPoint, Qt::MouseButton button);
+    void onDoubleTapped(QEventPoint eventPoint, Qt::MouseButton button);
+    void onPressedChanged();
+
+#if QT_CONFIG(graphs_2d_scatter)
+    void updateScatterSeries(QScatterSeries *scatter, QLegendData &legendData);
+#endif
+#if QT_CONFIG(graphs_2d_line) || QT_CONFIG(graphs_2d_area)
+    void updateLineSeries(QLineSeries *line, QLegendData &legendData);
+#endif
+#if QT_CONFIG(graphs_2d_spline)
+    void updateSplineSeries(QSplineSeries *spline, QLegendData &legendData);
+#endif
+};
+
+QT_END_NAMESPACE
+
+#endif // POINTRENDERER_H

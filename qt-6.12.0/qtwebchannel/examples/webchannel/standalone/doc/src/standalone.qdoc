@@ -1,0 +1,53 @@
+// Copyright (C) 2016 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Milian Wolff <milian.wolff@kdab.com>
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GFDL-1.3-no-invariants-only
+
+/*!
+    \example standalone
+    \title Qt WebChannel Standalone Example
+    \ingroup qtwebchannel-examples
+    \image standalone-screenshot.png
+           {Dialog window listing exchanged ping and pong messages with an
+           input field and Send button, over a terminal showing connection
+           log output}
+    \examplecategory {Web Technologies}
+    \brief A simple chat between a server and a remote client running in a
+    browser.
+
+    \e{Standalone} demonstrates how to use the QWebChannel C++ API to
+    communicate with an external client. It is a simple chat between a C++
+    application and a remote HTML client running in your default browser.
+
+    \include examples-run.qdocinc
+
+    \section1 Communicating with a Remote Client
+
+    The C++ application sets up a QWebChannel instance and publishes a \c Core
+    object over it. On the remote client side, \c {index.html} runs in your
+    default browser. Both show a dialog with the list of received messages and
+    an input box to send messages to the other end.
+
+    The \c Core emits the \c Core::sendText() signal when the user sends
+    a message. The signal automatically gets propagated to the HTML client.
+    When the user enters a message on the HTML side, \c Core::receiveText()
+    is called.
+
+    All communication between the HTML client and the C++ server is done
+    over a WebSocket. The C++ side instantiates a QWebSocketServer and
+    wraps incoming QWebSocket connections in QWebChannelAbstractTransport
+    objects. These objects are then connected to the QWebChannel instance.
+
+    \section1 Serving the Client Page
+
+    The \c {index.html} page and the \c {qwebchannel.js} script it loads are
+    compiled into the application as Qt resources. The application serves them
+    over a minimal loopback HTTP server and opens the default browser at the
+    resulting \c http:// URL. A loopback URL works even when the browser and the
+    application do not share a filesystem, as on a sandboxed or cross-compiled
+    platform.
+
+    The example implements its own minimal HTTP server so that building it
+    does not require the Qt HTTP Server module. In a real application, you
+    would use \l QHttpServer instead.
+
+    \sa {Qt WebChannel JavaScript API}
+*/

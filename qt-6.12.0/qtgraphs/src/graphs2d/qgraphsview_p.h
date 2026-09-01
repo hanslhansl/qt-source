@@ -1,0 +1,376 @@
+// Copyright (C) 2023 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+// Qt-Security score:significant reason:default
+
+
+#ifndef QGRAPHSVIEW_H
+#define QGRAPHSVIEW_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtGraphs API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+
+#include <QtQuick/QQuickItem>
+#include <QtCore/QList>
+#include <QtQml/QQmlListProperty>
+#include <QtGraphs/qabstractseries.h>
+#include <QtGraphs/qgraphstheme.h>
+#include <QtCore/qloggingcategory.h>
+#include <private/qgraphsglobal_p.h>
+
+QT_BEGIN_NAMESPACE
+
+Q_DECLARE_LOGGING_CATEGORY(lcGraphs2D)
+Q_DECLARE_LOGGING_CATEGORY(lcViewProperties2D)
+Q_DECLARE_LOGGING_CATEGORY(lcEvents2D)
+Q_DECLARE_LOGGING_CATEGORY(lcCritical2D)
+
+class QQuickRectangle;
+class QAbstractAxis;
+class AxisRenderer;
+class BarsRenderer;
+class PointRenderer;
+class PieRenderer;
+class AreaRenderer;
+class CustomRenderer;
+class QQuickPinchHandler;
+class QCustomSeries;
+#if QT_CONFIG(graphs_2d_high_performance_backend)
+class QCPainterItem;
+#endif
+
+class Q_GRAPHS_EXPORT QGraphsView : public QQuickItem
+{
+    Q_OBJECT
+    Q_CLASSINFO("RegisterEnumClassesUnscoped", "false")
+    Q_PROPERTY(QGraphsTheme *theme READ theme WRITE setTheme NOTIFY themeChanged FINAL)
+    Q_PROPERTY(QQmlListProperty<QObject> seriesList READ seriesList CONSTANT)
+    Q_PROPERTY(qreal marginTop READ marginTop WRITE setMarginTop NOTIFY marginTopChanged FINAL)
+    Q_PROPERTY(qreal marginBottom READ marginBottom WRITE setMarginBottom NOTIFY marginBottomChanged FINAL)
+    Q_PROPERTY(qreal marginLeft READ marginLeft WRITE setMarginLeft NOTIFY marginLeftChanged FINAL)
+    Q_PROPERTY(qreal marginRight READ marginRight WRITE setMarginRight NOTIFY marginRightChanged FINAL)
+    Q_PROPERTY(bool clipPlotArea READ clipPlotArea WRITE setClipPlotArea NOTIFY clipPlotAreaChanged REVISION(6, 10))
+    Q_PROPERTY(QRectF plotArea READ plotArea NOTIFY plotAreaChanged REVISION(6, 9))
+
+    Q_PROPERTY(qreal axisXSmoothing READ axisXSmoothing WRITE setAxisXSmoothing NOTIFY axisXSmoothingChanged FINAL)
+    Q_PROPERTY(qreal axisYSmoothing READ axisYSmoothing WRITE setAxisYSmoothing NOTIFY axisYSmoothingChanged FINAL)
+    Q_PROPERTY(qreal gridSmoothing READ gridSmoothing WRITE setGridSmoothing NOTIFY gridSmoothingChanged FINAL)
+
+    Q_PROPERTY(bool shadowVisible READ isShadowVisible WRITE setShadowVisible NOTIFY
+                   shadowVisibleChanged FINAL)
+    Q_PROPERTY(QColor shadowColor READ shadowColor WRITE setShadowColor NOTIFY shadowColorChanged FINAL)
+    Q_PROPERTY(qreal shadowBarWidth READ shadowBarWidth WRITE setShadowBarWidth NOTIFY shadowBarWidthChanged FINAL)
+    Q_PROPERTY(qreal shadowXOffset READ shadowXOffset WRITE setShadowXOffset NOTIFY shadowXOffsetChanged FINAL)
+    Q_PROPERTY(qreal shadowYOffset READ shadowYOffset WRITE setShadowYOffset NOTIFY shadowYOffsetChanged FINAL)
+    Q_PROPERTY(qreal shadowSmoothing READ shadowSmoothing WRITE setShadowSmoothing NOTIFY shadowSmoothingChanged FINAL)
+
+    Q_PROPERTY(QAbstractAxis *axisX READ axisX WRITE setAxisX NOTIFY axisXChanged FINAL)
+    Q_PROPERTY(QAbstractAxis *axisY READ axisY WRITE setAxisY NOTIFY axisYChanged FINAL)
+    Q_PROPERTY(
+        Qt::Orientation orientation READ orientation WRITE setOrientation NOTIFY orientationChanged FINAL)
+
+    Q_PROPERTY(ZoomStyle zoomStyle READ zoomStyle WRITE setZoomStyle NOTIFY zoomStyleChanged REVISION(6, 9))
+    Q_PROPERTY(PanStyle panStyle READ panStyle WRITE setPanStyle NOTIFY panStyleChanged REVISION(6, 9))
+    Q_PROPERTY(qreal zoomSensitivity READ zoomSensitivity WRITE setZoomSensitivity NOTIFY
+                   zoomSensitivityChanged REVISION(6, 9))
+
+    Q_PROPERTY(bool zoomAreaEnabled READ zoomAreaEnabled WRITE setZoomAreaEnabled NOTIFY
+                   zoomAreaEnabledChanged REVISION(6, 9))
+    Q_PROPERTY(QQmlComponent *zoomAreaDelegate READ zoomAreaDelegate WRITE setZoomAreaDelegate
+                   NOTIFY zoomAreaDelegateChanged REVISION(6, 9))
+
+    Q_PROPERTY(bool useCanvasPainter READ useCanvasPainter WRITE setUseCanvasPainter NOTIFY useCanvasPainterChanged REVISION(6, 12))
+    Q_PROPERTY(bool dynamicLabelMargins READ dynamicLabelMargins WRITE setDynamicLabelMargins NOTIFY
+                   dynamicLabelMarginsChanged REVISION(6, 12))
+
+    Q_CLASSINFO("DefaultProperty", "seriesList")
+    QML_NAMED_ELEMENT(GraphsView)
+
+public:
+    explicit QGraphsView(QQuickItem *parent = nullptr);
+    ~QGraphsView() override;
+
+    Q_INVOKABLE void addSeries(QObject *series);
+    Q_INVOKABLE void insertSeries(qsizetype index, QObject *series);
+    Q_INVOKABLE void removeSeries(QObject *series);
+    Q_INVOKABLE void removeSeries(qsizetype index);
+    Q_INVOKABLE bool hasSeries(QObject *series);
+
+    QList<QObject *> getSeriesList() const {
+        return m_seriesList;
+    }
+
+    QPointF getDataPointCoordinates(QAbstractSeries *series, qreal x, qreal y);
+
+    QQmlListProperty<QObject> seriesList();
+    static void appendSeriesFunc(QQmlListProperty<QObject> *list, QObject *series);
+    static qsizetype countSeriesFunc(QQmlListProperty<QObject> *list);
+    static QObject *atSeriesFunc(QQmlListProperty<QObject> *list, qsizetype index);
+    static void clearSeriesFunc(QQmlListProperty<QObject> *list);
+
+    QGraphsTheme *theme() const;
+    void setTheme(QGraphsTheme *newTheme);
+
+    qreal marginTop() const;
+    void setMarginTop(qreal newMarginTop);
+
+    qreal marginBottom() const;
+    void setMarginBottom(qreal newMarginBottom);
+
+    qreal marginLeft() const;
+    void setMarginLeft(qreal newMarginLeft);
+
+    qreal marginRight() const;
+    void setMarginRight(qreal newMarginRight);
+
+    bool clipPlotArea() const;
+    void setClipPlotArea(bool enabled);
+
+    QRectF plotArea() const;
+    void updatePlotArea();
+    void updateAxisAreas();
+
+    void addAxis(QAbstractAxis *axis);
+    void removeAxis(QAbstractAxis *axis, bool removeAllReferences = false);
+
+    qsizetype graphSeriesCount() const;
+    void setGraphSeriesCount(qsizetype count);
+
+#if QT_CONFIG(graphs_2d_bar)
+    void createBarsRenderer();
+#endif
+    void createAxisRenderer();
+#if QT_CONFIG(graphs_2d_area) || QT_CONFIG(graphs_2d_line) || QT_CONFIG(graphs_2d_scatter) || QT_CONFIG(graphs_2d_spline)
+    void createPointRenderer();
+#endif
+#if QT_CONFIG(graphs_2d_donut_pie)
+    void createPieRenderer();
+#endif
+#if QT_CONFIG(graphs_2d_area)
+    void createAreaRenderer();
+#endif
+#if QT_CONFIG(graphs_2d_custom)
+    void createCustomRenderer();
+#endif
+#if QT_CONFIG(graphs_2d_high_performance_backend)
+    void createCanvasPainter();
+    void removeCanvasPainter();
+#endif
+
+    qreal axisXSmoothing() const;
+    void setAxisXSmoothing(qreal smoothing);
+    qreal axisYSmoothing() const;
+    void setAxisYSmoothing(qreal smoothing);
+    qreal gridSmoothing() const;
+    void setGridSmoothing(qreal smoothing);
+
+    bool isShadowVisible() const;
+    void setShadowVisible(bool newShadowVisibility);
+    QColor shadowColor() const;
+    void setShadowColor(QColor newShadowColor);
+    qreal shadowBarWidth() const;
+    void setShadowBarWidth(qreal newShadowBarWidth);
+    qreal shadowXOffset() const;
+    void setShadowXOffset(qreal newShadowXOffset);
+    qreal shadowYOffset() const;
+    void setShadowYOffset(qreal newShadowYOffset);
+    qreal shadowSmoothing() const;
+    void setShadowSmoothing(qreal smoothing);
+
+    QAbstractAxis *axisX() const;
+    void setAxisX(QAbstractAxis *axis);
+
+    QAbstractAxis *axisY() const;
+    void setAxisY(QAbstractAxis *axis);
+
+    Qt::Orientation orientation() const;
+    void setOrientation(Qt::Orientation newOrientation);
+
+    enum class ZoomStyle { None, Center };
+    Q_ENUM(ZoomStyle)
+
+    enum class PanStyle { None, Drag };
+    Q_ENUM(PanStyle)
+
+    ZoomStyle zoomStyle() const;
+    void setZoomStyle(ZoomStyle newZoomStyle);
+
+    PanStyle panStyle() const;
+    void setPanStyle(PanStyle newPanStyle);
+
+    bool zoomAreaEnabled() const;
+    void setZoomAreaEnabled(bool newZoomAreaEnabled);
+
+    QQmlComponent *zoomAreaDelegate() const;
+    void setZoomAreaDelegate(QQmlComponent *newZoomAreaDelegate);
+
+    qreal zoomSensitivity() const;
+    void setZoomSensitivity(qreal newZoomSensitivity);
+
+#if QT_CONFIG(graphs_2d_custom)
+    qreal mapX(QCustomSeries *series, qreal x);
+    qreal mapY(QCustomSeries *series, qreal y);
+#endif
+    CustomRenderer *customRenderer() const;
+
+    bool useCanvasPainter() const;
+    void setUseCanvasPainter(bool newUseCanvasPainter);
+
+    bool dynamicLabelMargins() const;
+    void setDynamicLabelMargins(bool newDynamicLabelMargins);
+
+protected:
+    void handleHoverEnter(const QString &seriesName, QPointF position, QPointF value);
+    void handleHoverExit(const QString &seriesName, QPointF position);
+    void handleHover(const QString &seriesName, QPointF position, QPointF value);
+    void updateComponentSizes();
+    void componentComplete() override;
+    void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) override;
+    void hoverMoveEvent(QHoverEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    QSGNode *updatePaintNode(QSGNode *oldNode, QQuickItem::UpdatePaintNodeData *updatePaintNodeData) override;
+    void updatePolish() override;
+
+Q_SIGNALS:
+    void themeChanged();
+    void marginTopChanged();
+    void marginBottomChanged();
+    void marginLeftChanged();
+    void marginRightChanged();
+    Q_REVISION(6, 10) void clipPlotAreaChanged();
+    Q_REVISION(6, 9) void plotAreaChanged();
+    void hoverEnter(const QString &seriesName, QPointF position, QPointF value);
+    void hoverExit(const QString &seriesName, QPointF position);
+    void hover(const QString &seriesName, QPointF position, QPointF value);
+
+    void axisXSmoothingChanged();
+    void axisYSmoothingChanged();
+    void gridSmoothingChanged();
+
+    void shadowVisibleChanged();
+    void shadowColorChanged();
+    void shadowBarWidthChanged();
+    void shadowXOffsetChanged();
+    void shadowYOffsetChanged();
+    void shadowSmoothingChanged();
+
+    void axisXChanged();
+    void axisYChanged();
+
+    void orientationChanged();
+
+    Q_REVISION(6, 9) void zoomStyleChanged();
+    Q_REVISION(6, 9) void panStyleChanged();
+
+    Q_REVISION(6, 9) void zoomAreaEnabledChanged();
+    Q_REVISION(6, 9) void zoomAreaDelegateChanged();
+
+    Q_REVISION(6, 9) void zoomSensitivityChanged();
+
+    Q_REVISION(6, 12) void useCanvasPainterChanged();
+    Q_REVISION(6, 12) void dynamicLabelMarginsChanged();
+
+private:
+    friend class AxisRenderer;
+    friend class BarsRenderer;
+    friend class PointRenderer;
+    friend class AreaRenderer;
+    friend class PieRenderer;
+    friend class CustomRenderer;
+    friend class QAbstractAxis;
+
+    void polishAndUpdate();
+    int getSeriesRendererIndex(QAbstractSeries *series);
+    void onPinchScaleChanged(qreal delta);
+    void onPinchGrabChanged(QPointingDevice::GrabTransition transition, QEventPoint point);
+
+    static constexpr qreal m_defaultAxisTickersWidth = 15;
+    static constexpr qreal m_defaultAxisTickersHeight = 15;
+    static constexpr qreal m_defaultAxisLabelsWidth = 40;
+    static constexpr qreal m_defaultAxisLabelsHeight = 25;
+    static constexpr qreal m_defaultAxisXLabelsMargin = 0;
+    static constexpr qreal m_defaultAxisYLabelsMargin = 5;
+    static constexpr qreal m_defaultAxisTitleMargin = 25;
+
+    AxisRenderer *m_axisRenderer = nullptr;
+    BarsRenderer *m_barsRenderer = nullptr;
+    PointRenderer *m_pointRenderer = nullptr;
+    PieRenderer *m_pieRenderer = nullptr;
+    AreaRenderer *m_areaRenderer = nullptr;
+    CustomRenderer *m_customRenderer = nullptr;
+    QList<QObject *> m_seriesList;
+    QHash<int, QList<QAbstractSeries *>> m_cleanupSeriesList;
+    QQuickRectangle *m_backgroundRectangle = nullptr;
+#if QT_CONFIG(graphs_2d_high_performance_backend)
+    QCPainterItem *m_painterItem = nullptr;
+#endif
+
+    QAbstractAxis *m_axisX = nullptr;
+    QAbstractAxis *m_axisY = nullptr;
+    Qt::Orientation m_orientation = Qt::Orientation::Vertical;
+
+    QGraphsTheme *m_theme = nullptr;
+    QGraphsTheme *m_defaultTheme = nullptr;
+
+    qsizetype m_graphSeriesCount = 0;
+
+    bool m_clipPlotArea = true;
+    qreal m_marginTop = 20;
+    qreal m_marginBottom = 20;
+    qreal m_marginLeft = 20;
+    qreal m_marginRight = 20;
+    QRectF m_plotArea;
+    // Areas of axis
+    QRectF m_x1AxisArea;
+    QRectF m_x2AxisArea;
+    QRectF m_y1AxisArea;
+    QRectF m_y2AxisArea;
+    // Per-side totals computed from each axis's slot size
+    qreal m_y1AxisWidth = 0;
+    qreal m_y2AxisWidth = 0;
+    qreal m_x1AxisHeight = 0;
+    qreal m_x2AxisHeight = 0;
+
+    int m_hoverCount = 0;
+
+    qreal m_axisXSmoothing = 1.0;
+    qreal m_axisYSmoothing = 1.0;
+    qreal m_gridSmoothing = 1.0;
+
+    bool m_isShadowVisible = false;
+    QColor m_shadowColor = QColorConstants::Black;
+    qreal m_shadowBarWidth = 2.0;
+    qreal m_shadowXOffset = 0.0;
+    qreal m_shadowYOffset = 0.0;
+    qreal m_shadowSmoothing = 4.0;
+
+    ZoomStyle m_zoomStyle = ZoomStyle::None;
+    PanStyle m_panStyle = PanStyle::None;
+    qreal m_zoomSensitivity = 0.05f;
+
+    bool m_zoomAreaEnabled = false;
+    QQmlComponent *m_zoomAreaDelegate = nullptr;
+    QQuickItem *m_zoomAreaItem = nullptr;
+    QQuickPinchHandler *m_pinchHandler = nullptr;
+    bool m_initialized = false;
+
+#if QT_CONFIG(graphs_2d_high_quality_backend)
+    bool m_useCanvasPainter = false;
+#elif QT_CONFIG(graphs_2d_high_performance_backend)
+    bool m_useCanvasPainter = true;
+#else
+    bool m_useCanvasPainter = false;
+#endif
+
+    bool m_dynamicLabelMargins = false;
+};
+
+QT_END_NAMESPACE
+
+#endif

@@ -1,0 +1,171 @@
+// Copyright (C) 2026 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GFDL-1.3-no-invariants-only
+
+/*!
+    \page qtopenapi-security.html
+    \title Qt OpenAPI Security Considerations
+    \ingroup security-considerations
+    \brief Security considerations and recommended network setups for Qt OpenAPI.
+
+    \section1 Handling OpenAPI Specifications from External Sources
+
+    The OpenAPI specification file is the primary input to the code generation
+    pipeline. It defines the entire surface of the generated client: API
+    endpoints, data models, server URLs, authentication schemes, and
+    operational parameters. Because the generator translates spec content
+    directly into C++ source code, it should be used with trusted input only.
+
+    \b{Users are responsible for vetting any OpenAPI specification obtained
+    from an external source before generating code from it.} A specification
+    downloaded from a third-party service or public repository may contain
+    values that, once compiled, behave in unexpected or harmful ways. Before
+    using an external specification, review it for:
+
+    \list
+    \li Unexpected or suspiciously complex server URL patterns and variable
+        definitions.
+    \li Description fields or extension attributes containing content that
+        should not appear in generated source code.
+    \li Overly deep or circular model references that could affect runtime
+        stability.
+    \li Server variable enum values or defaults that could alter the
+        intended request targets.
+    \endlist
+
+    While the generator applies escaping to prevent direct code injection
+    through spec-derived strings, a malicious specification still controls
+    the structure and behavior of the generated client — including class
+    names, endpoint URLs, data flow, and operational semantics. No amount
+    of escaping can make a fundamentally untrusted specification safe to
+    use without prior review.
+
+    \section1 Protecting Against Resource Exhaustion
+
+    In addition to reviewing the semantic content of an OpenAPI specification,
+    users processing specifications from untrusted sources should consider
+    limiting the resources consumed during code generation and execution.
+
+    A maliciously crafted specification may cause excessive resource consumption
+    during the code generation process itself, for example through extremely
+    complex schema structures, large numbers of references, or deeply nested
+    models. Furthermore, generated code derived from such a specification may
+    consume excessive resources at runtime if the specification is designed
+    to trigger resource-intensive code paths or data structures, potentially
+    leading to resource exhaustion or denial-of-service conditions.
+
+    The underlying YAML parser supports several configuration options that
+    help mitigate denial-of-service attacks caused by malicious YAML input,
+    such as excessive alias expansion (for example, Billion Laughs attacks),
+    deeply nested collections, recursive mapping keys, or unusually large
+    documents. These limits can be configured through JVM system properties
+    (for example, using \c JAVA_OPTIONS or \c JAVA_TOOL_OPTIONS), including:
+    \table
+    \header
+        \li Property
+        \li Purpose
+    \row
+        \li \c maxYamlReferences
+        \li Limits the total count of all YAML aliases (*) in a file,
+            regardless of their data type. Acts as a broad anti-DoS counter
+            for text-level duplication.
+            Example of anchor and alias usage:
+            \code
+                // Declaration (also called an anchor)
+                original: &name "John"
+                // Usage
+                copy: *name
+            \endcode
+            Aliases affect raw YAML syntax parsing; completely unrelated
+            to OpenAPI $ref pointers.
+    \row
+        \li \c maxYamlAliasesForCollections
+        \li Limits aliases (*) that specifically point to arrays or objects,
+            ignoring plain strings. This mitigates Billion Laughs-style
+            attacks.
+    \row
+        \li \c supportYamlAnchors
+        \li Enables or disables YAML anchors processing entirely. Disabling
+            anchors removes an entire class of alias-based attacks.
+    \row
+        \li \c maxYamlDepth
+        \li Limits the maximum nesting depth of YAML collections to prevent
+            stack exhaustion and excessive parser recursion.
+            Every time you indent further to the right to create a sub-object
+            or a sub-list, the vertical nesting depth increases by 1.
+            Note that it only counts literal file indentation and completely
+            ignores logical OpenAPI \c $ref pointers.
+    \row
+        \li \c maxYamlCodePoints
+        \li Limits the total size of the YAML input document.
+    \endtable
+
+    Example:
+    \code
+    qt_add_openapi_client(Example
+        SPEC_FILE
+            ${CMAKE_CURRENT_SOURCE_DIR}/unstructed-source-spec.yaml
+        JAVA_OPTIONS
+            -DmaxYamlAliasesForCollections=10
+            -DmaxYamlDepth=100
+            -DmaxYamlCodePoints=5000000
+            -DmaxYamlReferences=10
+            -DsupportYamlAnchors=false
+        OUTPUT_DIRECTORY
+            ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    \endcode
+
+    While the YAML parser stops syntax-level attacks, it cannot prevent
+    all variants of resource exhaustion. Neither the parser nor the
+    OpenAPI Generator limits schema complexity, measures the depth of \c $ref
+    chains, or calculates the stack space the resulting C++ structure
+    will consume.
+    Consequently, successful code generation and compilation do not
+    guarantee runtime safety. When processing production network traffic,
+    the application remains vulnerable to two critical vectors:
+    \list
+    \li Horizontal Expansion (Wide Payloads) -
+        a schema can have minimal nesting depth but allow an immense number
+        of sibling objects. Parsing these at runtime demands excessive heap
+        allocation, causing severe memory fragmentation or Out-of-Memory (OOM)
+        crashes.
+    \li Vertical Deepening (Deep Payloads) -
+        a schema might validly define deeply nested arrays of arrays or object
+        chains that pass compilation. However, when a malicious payload
+        exploiting this depth arrives over the network, the runtime parser's
+        recursive execution will rapidly exhaust the thread's fixed stack
+        space, triggering an unrecoverable Stack Overflow.
+    \endlist
+    For applications that process specifications from untrusted sources,
+    users should perform an additional manual review of the specification
+    before invoking the generator. Consider checking the following:
+    \table
+    \header
+        \li Recommended review
+        \li Purpose
+    \row
+        \li Circular \c $ref references
+        \li Prevents recursive reference graphs that may increase processing
+            complexity or expose implementation-specific limitations.
+    \row
+        \li Maximum schema nesting depth (nested objects)
+        \li Avoids excessively deep object hierarchies.
+    \row
+        \li Maximum \c $ref resolution depth (nested schema refs)
+        \li Avoids excessively long reference chains.
+    \row
+        \li Maximum number of schemas
+        \li Limits the overall size and complexity of the specification.
+    \row
+        \li Maximum array and map nesting depth
+        \li Avoids deeply nested collection types that may consume
+            excessive resources.
+    \endtable
+
+    \section1 Network communication
+
+    Generated clients perform HTTP requests using \l{QNetworkAccessManager}.
+    Credentials (API keys, bearer tokens, Basic Auth) are attached to outgoing
+    requests. The library does not enforce HTTPS; applications must ensure
+    that credentials are transmitted only over secure connections.
+*/

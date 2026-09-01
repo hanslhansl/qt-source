@@ -1,0 +1,1014 @@
+// Copyright (C) 2025 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+
+#include <QTest>
+#include <qdebug.h>
+
+#include "qcanvaspainter.h"
+#include "qcanvaslineargradient.h"
+#include "qcanvasradialgradient.h"
+#include "qcanvasconicalgradient.h"
+#include "qcanvasboxgradient.h"
+#include "qcanvasboxshadow.h"
+#include "qcanvasgridpattern.h"
+#include "qcanvasimagepattern.h"
+#include "qcanvasimage.h"
+#include "qcanvascustombrush.h"
+
+class tst_QCanvasBrush : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    // Brush autotests
+    void testEqual();
+    void testBrushEqual();
+    void testDataStreams();
+    void testDebugs();
+    void testTypes();
+    void testQVariantConversion();
+    void testGradientStops();
+    void testAssignments();
+    void testCopyIsolation();
+    void testBrushRoundtrip();
+};
+
+void tst_QCanvasBrush::testEqual()
+{
+    QCanvasLinearGradient lg(10, 10, 100, 100);
+    QCanvasLinearGradient lg2(10, 10, 100, 100);
+    QVERIFY(lg == lg2);
+    lg.setColorAt(0, Qt::red);
+    lg.setColorAt(0.5f, Qt::blue);
+    lg.setColorAt(1, Qt::green);
+    QVERIFY(lg != lg2);
+    lg2.setStops(lg.stops());
+    QVERIFY(lg == lg2);
+    lg.setColorAt(0.2f, Qt::black);
+    lg2.addColorStop(0.2f, Qt::black);
+    QVERIFY(lg == lg2);
+    auto lg3 = lg2;
+    QVERIFY(lg == lg3);
+
+    QCanvasRadialGradient rg1;
+    QCanvasRadialGradient rg2;
+    QVERIFY(rg1 == rg2);
+    rg2.setInnerRadius(12.3f);
+    QVERIFY(rg1 != rg2);
+    rg1.setInnerRadius(12.3f);
+    QVERIFY(rg1 == rg2);
+    rg2.setOuterRadius(32.4f);
+    QVERIFY(rg1 != rg2);
+    rg1.setOuterRadius(rg2.outerRadius());
+    QVERIFY(rg1 == rg2);
+    rg2.setColorAt(0.0f, Qt::red);
+    QVERIFY(rg1 != rg2);
+    rg2.setStops({});
+    QVERIFY(rg1 == rg2);
+
+    // Extended radial gradient
+    QCanvasRadialGradient rge1(100, 200, 10, 120, 210, 150);
+    QCanvasRadialGradient rge2(rge1);
+    QVERIFY(rge1 == rge2);
+    rge2.setInnerCenterPosition(101.5f, 202.5f);
+    QVERIFY(rge1 != rge2);
+    rge1.setInnerCenterPosition(rge2.innerCenterPosition());
+    QVERIFY(rge1 == rge2);
+    rge2.setOuterCenterPosition(121.5f, 222.5f);
+    QVERIFY(rge1 != rge2);
+    rge1.setOuterCenterPosition(rge2.outerCenterPosition());
+    QVERIFY(rge1 == rge2);
+    rge1.setInnerCenterPosition(12.3f, 34.5f);
+    rge1.setOuterCenterPosition(12.3f, 34.5f);
+    QVERIFY(rge1 != rge2);
+    // Sets the both in & out positions to same value.
+    rge2.setCenterPosition(rge1.centerPosition());
+    QVERIFY(rge1 == rge2);
+
+    QCanvasImagePattern ip1;
+    QCanvasImagePattern ip2;
+    QVERIFY(ip1 == ip2);
+    ip2.setRotation(12.3f);
+    QVERIFY(ip1 != ip2);
+    ip1.setRotation(12.3f);
+    QVERIFY(ip1 == ip2);
+    QCanvasImage img;
+    ip2.setImage(img);
+    // Still the same as the image is empty.
+    QVERIFY(ip1 == ip2);
+    ip2.setStartPosition(50, 60);
+    QVERIFY(ip1 != ip2);
+    ip1.setStartPosition(ip2.startPosition());
+    QVERIFY(ip1 == ip2);
+    ip2.setImageSize(64, 128);
+    QVERIFY(ip1 != ip2);
+    ip1.setImageSize(ip2.imageSize());
+    QVERIFY(ip1 == ip2);
+
+    QCanvasGridPattern gp1;
+    QCanvasGridPattern gp2;
+    QVERIFY(gp1 == gp2);
+    gp2.setRotation(12.3f);
+    QVERIFY(gp1 != gp2);
+    gp1.setRotation(12.3f);
+    QVERIFY(gp1 == gp2);
+    gp2.setStartPosition(50, 60);
+    QVERIFY(gp1 != gp2);
+    gp1.setStartPosition(gp2.startPosition());
+    QVERIFY(gp1 == gp2);
+    gp2.setLineColor(QColorConstants::Yellow);
+    QVERIFY(gp1 != gp2);
+    gp1.setLineColor(gp2.lineColor());
+    QVERIFY(gp1 == gp2);
+
+    QCanvasBoxShadow bs1(10, 20, 30, 40, 2, 5, QColorConstants::Red);
+    QCanvasBoxShadow bs2(10, 20, 30, 40, 2, 5, QColorConstants::Red);
+    QVERIFY(bs1 == bs2);
+    bs2.setSpread(7);
+    QVERIFY(bs1 != bs2);
+    bs1.setSpread(7);
+    QVERIFY(bs1 == bs2);
+    bs2.setBlur(12.3f);
+    QVERIFY(bs1 != bs2);
+    bs1.setBlur(bs2.blur());
+    QVERIFY(bs1 == bs2);
+    bs2.setBottomRightRadius(4);
+    QVERIFY(bs1 != bs2);
+    bs1.setBottomRightRadius(bs2.bottomRightRadius());
+    QVERIFY(bs1 == bs2);
+}
+
+void tst_QCanvasBrush::testBrushEqual()
+{
+    // QCanvasBrush comparison is also value based. Comparing two QCanvasBrush
+    // gives the same result as comparing the concrete brushes they were created
+    // from, also when the brushes do not share their data.
+
+    QCanvasBrush invalid1;
+    QCanvasBrush invalid2;
+    QCOMPARE(invalid1, invalid2);
+
+    const QCanvasGradientStops stops = {
+        { 0.0f, QColorConstants::Red },
+        { 0.5f, QColorConstants::Green },
+        { 1.0f, QColorConstants::Blue },
+    };
+
+    // QCanvasLinearGradient
+    {
+        QCanvasLinearGradient a(10, 20, 30, 40);
+        a.setStops(stops);
+        QCanvasLinearGradient b(10, 20, 30, 40);
+        b.setStops(stops);
+        QCOMPARE(a, b);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+        QVERIFY(QCanvasBrush(a) != invalid1);
+
+        b.setEndPosition(31, 40);
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+
+        b.setEndPosition(30, 40);
+        b.setColorAt(0.25f, QColorConstants::Black);
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasRadialGradient
+    {
+        QCanvasRadialGradient a(50, 100, 40, 60, 90, 80);
+        QCanvasRadialGradient b(50, 100, 40, 60, 90, 80);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+        b.setInnerRadius(41);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasConicalGradient
+    {
+        QCanvasConicalGradient a(100, 200, float(M_PI));
+        QCanvasConicalGradient b(100, 200, float(M_PI));
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+        b.setAngle(1.5f);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasBoxGradient
+    {
+        QCanvasBoxGradient a(10, 20, 30, 40, 15, 5);
+        QCanvasBoxGradient b(10, 20, 30, 40, 15, 5);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+        b.setFeather(16);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasBoxShadow
+    {
+        QCanvasBoxShadow a(10, 20, 30, 40, 2, 5, QColorConstants::Red);
+        a.setTopLeftRadius(1);
+        QCanvasBoxShadow b(10, 20, 30, 40, 2, 5, QColorConstants::Red);
+        b.setTopLeftRadius(1);
+        QCOMPARE(a, b);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+
+        b.setColor(QColorConstants::Blue);
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasGridPattern
+    {
+        QCanvasGridPattern a(10, 20, 30, 40, QColorConstants::Red, QColorConstants::Blue);
+        a.setLineWidth(3.0f);
+        QCanvasGridPattern b(10, 20, 30, 40, QColorConstants::Red, QColorConstants::Blue);
+        b.setLineWidth(3.0f);
+        QCOMPARE(a, b);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+
+        b.setLineWidth(9.0f);
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasImagePattern
+    {
+        QCanvasImage image;
+        QCanvasImagePattern a(image, 10, 20, 30, 40, 0.5f, QColorConstants::Red);
+        QCanvasImagePattern b(image, 10, 20, 30, 40, 0.5f, QColorConstants::Red);
+        QCOMPARE(a, b);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+
+        b.setTintColor(QColorConstants::Green);
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasCustomBrush
+    {
+        QCanvasCustomBrush a;
+        a.setData1(QVector4D(1, 2, 3, 4));
+        QCanvasCustomBrush b;
+        b.setData1(QVector4D(1, 2, 3, 4));
+        QCOMPARE(a, b);
+        QCOMPARE(QCanvasBrush(a), QCanvasBrush(b));
+
+        b.setData2(QVector4D(5, 6, 7, 8));
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // Brushes of different types are never equal, not even when the
+    // type specific values would match.
+    {
+        const QCanvasBrush linear = QCanvasLinearGradient(10, 20, 30, 40);
+        const QCanvasBrush box = QCanvasBoxGradient(10, 20, 30, 40, 0);
+        const QCanvasBrush grid = QCanvasGridPattern(10, 20, 30, 40);
+        const QCanvasBrush shadow = QCanvasBoxShadow(10, 20, 30, 40);
+        QVERIFY(linear != box);
+        QVERIFY(grid != shadow);
+        QVERIFY(linear != grid);
+        QVERIFY(shadow != invalid1);
+    }
+
+    // Copies and brushes sharing their data stay equal.
+    {
+        QCanvasGridPattern gp(10, 20, 30, 40, QColorConstants::Red, QColorConstants::Blue);
+        const QCanvasBrush brush = gp;
+        const QCanvasBrush shared = gp;
+        const QCanvasBrush copy = brush;
+        QCOMPARE(brush, shared);
+        QCOMPARE(brush, copy);
+    }
+}
+
+void tst_QCanvasBrush::testDataStreams()
+{
+    QByteArray data;
+    QCanvasGradientStops stops;
+    stops << QCanvasGradientStop {0.0f, QColorConstants::Red};
+    stops << QCanvasGradientStop {0.5f, QColorConstants::Green};
+    stops << QCanvasGradientStop {1.0f, QColorConstants::Blue};
+
+    // QCanvasLinearGradient
+    QCanvasLinearGradient lc1(10, 20, 30, 40);
+    lc1.setStops(stops);
+    QCanvasLinearGradient lc2(10, 20, 30, 40);
+    lc2.setStops(stops);
+    QCOMPARE(lc1, lc2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << lc1;
+    }
+    QCanvasLinearGradient lcStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> lcStreamed;
+    }
+    QCOMPARE(lc1, lcStreamed);
+
+    // QCanvasRadialGradient
+    QCanvasRadialGradient rc1(50, 100, 80, 40);
+    rc1.setStops(stops);
+    QCanvasRadialGradient rc2(rc1);
+    QCOMPARE(rc1, rc2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << rc1;
+    }
+    QCanvasRadialGradient rcStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> rcStreamed;
+    }
+    QCOMPARE(rc1, rcStreamed);
+
+    // QCanvasRadialGradient - extended
+    QCanvasRadialGradient rce1(50, 100, 40, 60, 90, 80);
+    rce1.setStops(stops);
+    QCanvasRadialGradient rce2(rce1);
+    QCOMPARE(rce1, rce2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << rce1;
+    }
+    QCanvasRadialGradient rceStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> rceStreamed;
+    }
+    QCOMPARE(rce1, rceStreamed);
+
+    // QCanvasConicalGradient
+    QCanvasConicalGradient cc1(100, 200, float(M_PI));
+    cc1.setStops(stops);
+    QCanvasConicalGradient cc2 = cc1;
+    QCOMPARE(cc1, cc2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << cc1;
+    }
+    QCanvasConicalGradient ccStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> ccStreamed;
+    }
+    QCOMPARE(cc1, ccStreamed);
+
+    // QCanvasBoxGradient
+    QCanvasBoxGradient bc1(10, 20, 30, 40, 15, 5);
+    bc1.setStops(stops);
+    QCanvasBoxGradient bc2 = bc1;
+    QCOMPARE(bc1, bc2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << bc1;
+    }
+    QCanvasBoxGradient bcStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> bcStreamed;
+    }
+    QCOMPARE(bc1, bcStreamed);
+
+    // QCanvasImagePattern
+    QCanvasImage image;
+    QRectF rect(10, 20, 30, 40);
+    QCanvasImagePattern ip1(image, rect, 0.5f, QColorConstants::Red);
+    QCanvasImagePattern ip2 = ip1;
+    QCOMPARE(ip1, ip2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << ip1;
+    }
+    QCanvasImagePattern ipStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> ipStreamed;
+    }
+    QCOMPARE(ip1, ipStreamed);
+
+    // QCanvasBoxShadow
+    QCanvasBoxShadow bs1(10, 20, 30, 40, 15, 5, QColorConstants::Red);
+    bs1.setTopLeftRadius(2);
+    bs1.setTopRightRadius(3);
+    bs1.setBottomLeftRadius(4);
+    bs1.setBottomRightRadius(5);
+    QCanvasBoxShadow bs2 = bs1;
+    QCOMPARE(bs1, bs2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << bs1;
+    }
+    QCanvasBoxShadow bsStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> bsStreamed;
+    }
+    QCOMPARE(bs1, bsStreamed);
+
+    // QCanvasGridPattern
+    QCanvasGridPattern gp1(10, 20, 30, 40, QColorConstants::Red, QColorConstants::Blue);
+    gp1.setFeather(2.0f);
+    gp1.setRotation(0.5f);
+    gp1.setLineWidth(3.0f);
+    QCanvasGridPattern gp2 = gp1;
+    QCOMPARE(gp1, gp2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << gp1;
+    }
+    QCanvasGridPattern gpStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> gpStreamed;
+    }
+    QCOMPARE(gp1, gpStreamed);
+
+    // QCanvasCustomBrush
+    QCanvasCustomBrush cb1;
+    cb1.setTimeRunning(true);
+    cb1.setData1(QVector4D(1.0f, 2.0f, 3.0f, 4.0f));
+    cb1.setData2(QVector4D(5.0f, 6.0f, 7.0f, 8.0f));
+    cb1.setData3(QVector4D(9.0f, 10.0f, 11.0f, 12.0f));
+    cb1.setData4(QVector4D(13.0f, 14.0f, 15.0f, 16.0f));
+    QCanvasCustomBrush cb2 = cb1;
+    QCOMPARE(cb1, cb2);
+    {
+        QDataStream sw(&data, QIODevice::WriteOnly);
+        sw << cb1;
+    }
+    QCanvasCustomBrush cbStreamed;
+    {
+        QDataStream sr(&data, QIODevice::ReadOnly);
+        sr >> cbStreamed;
+    }
+    QCOMPARE(cb1, cbStreamed);
+}
+
+void tst_QCanvasBrush::testDebugs()
+{
+    QCanvasLinearGradient g1;
+    qDebug() << g1;
+    QCanvasRadialGradient g2;
+    g2.setStartColor(QColorConstants::Red);
+    qDebug() << g2;
+    QCanvasConicalGradient g3;
+    g3.setStartColor(QColorConstants::Red);
+    g3.setEndColor(QColorConstants::Blue);
+    qDebug() << g3;
+    QCanvasBoxGradient g4;
+    g4.setColorAt(0.5f, QColorConstants::Green);
+    qDebug() << g4;
+    QCanvasImagePattern p1;
+    qDebug() << p1;
+    QCanvasBoxShadow bs1;
+    qDebug() << bs1;
+    QCanvasGridPattern gp1;
+    qDebug() << gp1;
+
+    const QCanvasGradientStop stop { 0.25f, QColorConstants::Red };
+    QString stopText;
+    QDebug(&stopText) << stop;
+    QVERIFY(stopText.contains(u"QCanvasGradientStop("));
+    QVERIFY(stopText.contains(u"0.25"));
+
+    const QCanvasGradientStops stops = { stop, { 0.75f, QColorConstants::Blue } };
+    QString stopsText;
+    QDebug(&stopsText) << stops;
+    QCOMPARE(stopsText.count(u"QCanvasGradientStop("), 2);
+}
+
+void tst_QCanvasBrush::testTypes()
+{
+    QList<QCanvasBrush> brushes;
+    brushes.append(QCanvasBrush());
+    brushes.append(QCanvasLinearGradient(10, 20, 30, 40));
+    brushes.append(QCanvasRadialGradient(11, 21, 31, 41));
+    brushes.append(QCanvasConicalGradient(12, 22, 23));
+    brushes.append(QCanvasBoxGradient(13, 23, 33, 43, 10));
+    QCanvasImage image;
+    brushes.append(QCanvasImagePattern(image, 14, 24, 34, 44));
+    brushes.append(QCanvasBoxShadow(51, 52, 53, 54, 21, 22, QColorConstants::Black));
+    brushes.append(QCanvasGridPattern(61, 62, 63, 64, QColorConstants::Green, QColorConstants::Yellow));
+
+    int gradients = 0;
+    int patterns = 0;
+    int shadows = 0;
+    for (const auto &brush : brushes) {
+        if (brush.type() == QCanvasBrush::BrushType::Invalid) {
+            // Base brush type
+        } else if (brush.type() == QCanvasBrush::BrushType::LinearGradient) {
+            auto b = brush.as<QCanvasLinearGradient>();
+            QCOMPARE(b.startPosition().x(), 10);
+            gradients++;
+        } else if (brush.type() == QCanvasBrush::BrushType::RadialGradient) {
+            auto b = brush.as<QCanvasRadialGradient>();
+            QCOMPARE(b.centerPosition().x(), 11);
+            gradients++;
+        } else if (brush.type() == QCanvasBrush::BrushType::ConicalGradient) {
+            auto b = brush.as<QCanvasConicalGradient>();
+            QCOMPARE(b.centerPosition().x(), 12);
+            gradients++;
+        } else if (brush.type() == QCanvasBrush::BrushType::BoxGradient) {
+            auto b = brush.as<QCanvasBoxGradient>();
+            QCOMPARE(b.rect().x(), 13);
+            gradients++;
+        } else if (brush.type() == QCanvasBrush::BrushType::ImagePattern) {
+            auto b = brush.as<QCanvasImagePattern>();
+            QCOMPARE(b.startPosition().x(), 14);
+            patterns++;
+        } else if (brush.type() == QCanvasBrush::BrushType::BoxShadow) {
+            auto b = brush.as<QCanvasBoxShadow>();
+            QCOMPARE(b.rect().x(), 51);
+            shadows++;
+        } else if (brush.type() == QCanvasBrush::BrushType::GridPattern) {
+            auto b = brush.as<QCanvasGridPattern>();
+            QCOMPARE(b.startPosition().x(), 61);
+            patterns++;
+        }
+    }
+    QCOMPARE(gradients, 4);
+    QCOMPARE(patterns, 2);
+    QCOMPARE(shadows, 1);
+}
+
+void tst_QCanvasBrush::testQVariantConversion()
+{
+    QCanvasLinearGradient g1(10, 20, 30, 40);
+    g1.setStartColor(QColorConstants::Blue);
+    g1.setEndColor(QColorConstants::Red);
+    QVariant vg1(g1);
+    QCanvasLinearGradient g2 = qvariant_cast<QCanvasLinearGradient>(vg1);
+    QCOMPARE(g1, g2);
+
+    QCanvasImage image;
+    QCanvasImagePattern i1(image, 14, 24, 34, 44);
+    i1.setRotation(0.5f);
+    QVariant vi1(i1);
+    QCanvasImagePattern i2 = qvariant_cast<QCanvasImagePattern>(vi1);
+    QCOMPARE(i1, i2);
+
+    QCanvasBoxShadow s1(10, 20, 30, 40);
+    s1.setColor(QColorConstants::Blue);
+    QVariant vs1(s1);
+    QCanvasBoxShadow s2 = qvariant_cast<QCanvasBoxShadow>(vs1);
+    QCOMPARE(s1, s2);
+}
+
+void tst_QCanvasBrush::testGradientStops()
+{
+    // Test stop values
+    QCanvasLinearGradient g1;
+    QCOMPARE(g1.stops().size(), 0);
+    g1.setStartColor(QColorConstants::Blue);
+    g1.setColorAt(0.0, QColorConstants::Blue);
+    g1.setColorAt(0.0f, QColorConstants::Blue);
+    QCOMPARE(g1.stops().size(), 1);
+    g1.setEndColor(QColorConstants::Blue);
+    g1.setColorAt(1.0, QColorConstants::Blue);
+    g1.setColorAt(1.0f, QColorConstants::Blue);
+    QCOMPARE(g1.stops().size(), 2);
+    g1.setColorAt(0.5f, QColorConstants::Blue);
+    g1.setColorAt(0.05f, QColorConstants::Blue);
+    g1.setColorAt(0.95f, QColorConstants::Blue);
+    QCOMPARE(g1.stops().size(), 5);
+    g1.addColorStop(0.5f, QColorConstants::Blue);
+    g1.addColorStop(0.05f, QColorConstants::Blue);
+    g1.addColorStop(0.95f, QColorConstants::Blue);
+    QCOMPARE(g1.stops().size(), 5);
+
+    // Test stop order
+    QCanvasLinearGradient g2;
+    g2.setColorAt(0.0f, QColorConstants::Black);
+    g2.setColorAt(0.5f, QColorConstants::Red);
+    g2.setColorAt(0.95f, QColorConstants::Green);
+    g2.setColorAt(1.0f, QColorConstants::Black);
+    QCOMPARE(g2.stops().size(), 4);
+    QCOMPARE(g2.stops().at(1).color, QColorConstants::Red);
+    QCOMPARE(g2.stops().at(2).color, QColorConstants::Green);
+    QCanvasLinearGradient g3;
+    g3.setColorAt(1.0f, QColorConstants::Black);
+    g3.setColorAt(0.95f, QColorConstants::Green);
+    g3.setColorAt(0.5f, QColorConstants::Red);
+    g3.setColorAt(0.0f, QColorConstants::Black);
+    QCOMPARE(g3.stops().size(), 4);
+    QCOMPARE(g3.stops().at(1).color, QColorConstants::Red);
+    QCOMPARE(g3.stops().at(2).color, QColorConstants::Green);
+    QCanvasLinearGradient g4;
+    g4.setColorAt(0.5f, QColorConstants::Red);
+    g4.setColorAt(1.0f, QColorConstants::Black);
+    g4.setColorAt(0.0f, QColorConstants::Black);
+    g4.setColorAt(0.95f, QColorConstants::Green);
+    QCOMPARE(g4.stops().size(), 4);
+    QCOMPARE(g4.stops().at(1).color, QColorConstants::Red);
+    QCOMPARE(g4.stops().at(2).color, QColorConstants::Green);
+
+    // Test setting all stops
+    QCanvasLinearGradient lg;
+    lg.setStops({});
+    QCOMPARE(lg.stops().size(), 0);
+    lg.setStops({{0.5f, QColorConstants::Black}});
+    QCOMPARE(lg.stops().size(), 1);
+    lg.setStops({ {0.0f, QColorConstants::Red},
+                  {1.0f, QColorConstants::Green},
+                  {1.0f, QColorConstants::Blue} });
+    QCOMPARE(lg.stops().size(), 3);
+    lg.setStops({});
+    QCOMPARE(lg.stops().size(), 0);
+}
+
+void tst_QCanvasBrush::testCopyIsolation()
+{
+    // Verify that modifying a copy does not affect the original (copy-on-write isolation).
+    // Each setter on implicitly-shared types must call detach() before accessing the private data.
+
+    // QCanvasBoxShadow
+    {
+        QCanvasBoxShadow a(10, 20, 30, 40, 2, 5, QColorConstants::Red);
+        a.setSpread(7);
+        a.setTopLeftRadius(1);
+        a.setTopRightRadius(2);
+        a.setBottomLeftRadius(3);
+        a.setBottomRightRadius(4);
+
+        QCanvasBoxShadow b = a;
+        QCOMPARE(a, b);
+
+        b.setRect(1, 2, 3, 4);
+        QCOMPARE(a.rect(), QRectF(10, 20, 30, 40));
+        QCOMPARE(b.rect(), QRectF(1, 2, 3, 4));
+
+        b.setRadius(99);
+        QCOMPARE(a.radius(), 2.0f);
+        QCOMPARE(b.radius(), 99.0f);
+
+        b.setBlur(99);
+        QCOMPARE(a.blur(), 5.0f);
+        QCOMPARE(b.blur(), 99.0f);
+
+        b.setSpread(99);
+        QCOMPARE(a.spread(), 7.0f);
+        QCOMPARE(b.spread(), 99.0f);
+
+        b.setColor(QColorConstants::Blue);
+        QCOMPARE(a.color(), QColorConstants::Red);
+        QCOMPARE(b.color(), QColorConstants::Blue);
+
+        b.setTopLeftRadius(99);
+        QCOMPARE(a.topLeftRadius(), 1.0f);
+        QCOMPARE(b.topLeftRadius(), 99.0f);
+
+        b.setTopRightRadius(99);
+        QCOMPARE(a.topRightRadius(), 2.0f);
+        QCOMPARE(b.topRightRadius(), 99.0f);
+
+        b.setBottomLeftRadius(99);
+        QCOMPARE(a.bottomLeftRadius(), 3.0f);
+        QCOMPARE(b.bottomLeftRadius(), 99.0f);
+
+        b.setBottomRightRadius(99);
+        QCOMPARE(a.bottomRightRadius(), 4.0f);
+        QCOMPARE(b.bottomRightRadius(), 99.0f);
+    }
+
+    // QCanvasGridPattern
+    {
+        QCanvasGridPattern a(10, 20, 30, 40, QColorConstants::Red, QColorConstants::Blue);
+        a.setLineWidth(3.0f);
+        a.setFeather(2.0f);
+        a.setRotation(0.5f);
+
+        QCanvasGridPattern b = a;
+        QCOMPARE(a, b);
+
+        b.setStartPosition(1, 2);
+        QCOMPARE(a.startPosition(), QPointF(10, 20));
+        QCOMPARE(b.startPosition(), QPointF(1, 2));
+
+        b.setCellSize(5, 6);
+        QCOMPARE(a.cellSize(), QSizeF(30, 40));
+        QCOMPARE(b.cellSize(), QSizeF(5, 6));
+
+        b.setLineWidth(99);
+        QCOMPARE(a.lineWidth(), 3.0f);
+        QCOMPARE(b.lineWidth(), 99.0f);
+
+        b.setFeather(99);
+        QCOMPARE(a.feather(), 2.0f);
+        QCOMPARE(b.feather(), 99.0f);
+
+        b.setRotation(9.9f);
+        QCOMPARE(a.rotation(), 0.5f);
+        QCOMPARE(b.rotation(), 9.9f);
+
+        b.setLineColor(QColorConstants::Green);
+        QCOMPARE(a.lineColor(), QColorConstants::Red);
+        QCOMPARE(b.lineColor(), QColorConstants::Green);
+
+        b.setBackgroundColor(QColorConstants::Yellow);
+        QCOMPARE(a.backgroundColor(), QColorConstants::Blue);
+        QCOMPARE(b.backgroundColor(), QColorConstants::Yellow);
+    }
+
+    // QCanvasImagePattern
+    {
+        QCanvasImagePattern a;
+        a.setStartPosition(10, 20);
+        a.setImageSize(30, 40);
+        a.setRotation(0.5f);
+        a.setTintColor(QColorConstants::Red);
+
+        QCanvasImagePattern b = a;
+        QCOMPARE(a, b);
+
+        b.setStartPosition(1, 2);
+        QCOMPARE(a.startPosition(), QPointF(10, 20));
+        QCOMPARE(b.startPosition(), QPointF(1, 2));
+
+        b.setImageSize(3, 4);
+        QCOMPARE(a.imageSize(), QSizeF(30, 40));
+        QCOMPARE(b.imageSize(), QSizeF(3, 4));
+
+        b.setRotation(9.9f);
+        QCOMPARE(a.rotation(), 0.5f);
+        QCOMPARE(b.rotation(), 9.9f);
+
+        b.setTintColor(QColorConstants::Blue);
+        QCOMPARE(a.tintColor(), QColorConstants::Red);
+        QCOMPARE(b.tintColor(), QColorConstants::Blue);
+    }
+
+    // QCanvasCustomBrush
+    {
+        QCanvasCustomBrush a;
+        const QCanvasCustomBrush snapshot = a;
+
+        QCanvasCustomBrush b = a;
+        b.setTimeRunning(true);
+        QVERIFY(!a.timeRunning());
+        QVERIFY(b.timeRunning());
+
+        // setData1-4 have no individual getters; verify isolation via equality
+        b = a;
+        b.setData1(QVector4D(1, 2, 3, 4));
+        QCOMPARE(a, snapshot);
+        QVERIFY(a != b);
+
+        b = a;
+        b.setData2(QVector4D(1, 2, 3, 4));
+        QCOMPARE(a, snapshot);
+        QVERIFY(a != b);
+
+        b = a;
+        b.setData3(QVector4D(1, 2, 3, 4));
+        QCOMPARE(a, snapshot);
+        QVERIFY(a != b);
+
+        b = a;
+        b.setData4(QVector4D(1, 2, 3, 4));
+        QCOMPARE(a, snapshot);
+        QVERIFY(a != b);
+    }
+
+    // QCanvasLinearGradient
+    {
+        QCanvasLinearGradient a(10, 20, 30, 40);
+        a.setStartColor(QColorConstants::Red);
+        a.setEndColor(QColorConstants::Blue);
+
+        QCanvasLinearGradient b = a;
+        QCOMPARE(a, b);
+
+        b.setStartPosition(1, 2);
+        QCOMPARE(a.startPosition(), QPointF(10, 20));
+        QCOMPARE(b.startPosition(), QPointF(1, 2));
+
+        b.setEndPosition(3, 4);
+        QCOMPARE(a.endPosition(), QPointF(30, 40));
+        QCOMPARE(b.endPosition(), QPointF(3, 4));
+
+        b.setStartColor(QColorConstants::Green);
+        QCOMPARE(a.startColor(), QColorConstants::Red);
+        QCOMPARE(b.startColor(), QColorConstants::Green);
+
+        b.setStops({});
+        QCOMPARE(a.stops().size(), 2);
+        QCOMPARE(b.stops().size(), 0);
+
+        b = a;
+        b.setColorAt(0.5f, QColorConstants::Black);
+        QCOMPARE(a.stops().size(), 2);
+        QCOMPARE(b.stops().size(), 3);
+    }
+
+    // QCanvasRadialGradient
+    {
+        QCanvasRadialGradient a(50, 60, 80, 40);
+        a.setStartColor(QColorConstants::Red);
+
+        QCanvasRadialGradient b = a;
+        QCOMPARE(a, b);
+
+        b.setCenterPosition(1, 2);
+        QCOMPARE(a.centerPosition(), QPointF(50, 60));
+        QCOMPARE(b.centerPosition(), QPointF(1, 2));
+
+        b.setOuterRadius(99);
+        QCOMPARE(a.outerRadius(), 80.0f);
+        QCOMPARE(b.outerRadius(), 99.0f);
+
+        b.setInnerRadius(99);
+        QCOMPARE(a.innerRadius(), 40.0f);
+        QCOMPARE(b.innerRadius(), 99.0f);
+
+        // Extended form: distinct inner/outer centers
+        QCanvasRadialGradient ae(50, 60, 10, 70, 80, 90);
+        QCanvasRadialGradient be = ae;
+        QCOMPARE(ae, be);
+
+        be.setInnerCenterPosition(1, 2);
+        QCOMPARE(ae.innerCenterPosition(), QPointF(50, 60));
+        QCOMPARE(be.innerCenterPosition(), QPointF(1, 2));
+
+        be.setOuterCenterPosition(3, 4);
+        QCOMPARE(ae.outerCenterPosition(), QPointF(70, 80));
+        QCOMPARE(be.outerCenterPosition(), QPointF(3, 4));
+    }
+
+    // QCanvasConicalGradient
+    {
+        QCanvasConicalGradient a(10, 20, float(M_PI));
+        a.setStartColor(QColorConstants::Red);
+
+        QCanvasConicalGradient b = a;
+        QCOMPARE(a, b);
+
+        b.setCenterPosition(1, 2);
+        QCOMPARE(a.centerPosition(), QPointF(10, 20));
+        QCOMPARE(b.centerPosition(), QPointF(1, 2));
+
+        b.setAngle(0);
+        QCOMPARE(a.angle(), float(M_PI));
+        QCOMPARE(b.angle(), 0.0f);
+
+        b.setEndColor(QColorConstants::Blue);
+        QCOMPARE(a.endColor(), QColorConstants::Red);
+        QCOMPARE(b.endColor(), QColorConstants::Blue);
+    }
+
+    // QCanvasBoxGradient
+    {
+        QCanvasBoxGradient a(10, 20, 30, 40, 5, 2);
+        a.setStartColor(QColorConstants::Red);
+
+        QCanvasBoxGradient b = a;
+        QCOMPARE(a, b);
+
+        b.setRect(1, 2, 3, 4);
+        QCOMPARE(a.rect(), QRectF(10, 20, 30, 40));
+        QCOMPARE(b.rect(), QRectF(1, 2, 3, 4));
+
+        b.setFeather(99);
+        QCOMPARE(a.feather(), 5.0f);
+        QCOMPARE(b.feather(), 99.0f);
+
+        b.setRadius(99);
+        QCOMPARE(a.radius(), 2.0f);
+        QCOMPARE(b.radius(), 99.0f);
+
+        b.setStartColor(QColorConstants::Green);
+        QCOMPARE(a.startColor(), QColorConstants::Red);
+        QCOMPARE(b.startColor(), QColorConstants::Green);
+    }
+}
+
+#define VERIFY_SWAP(Type1, Type2)                                       \
+    QVERIFY2((std::is_invocable_v<decltype(&Type1::swap), Type1&, Type2&>), \
+             #Type1 " should be swappable with " #Type2)
+#define VERIFY_NO_SWAP(Type1, Type2) \
+    QVERIFY2(!(std::is_invocable_v<decltype(&Type1::swap), Type1&, Type2&>), \
+             #Type1 " should not be swappable with " #Type2)
+
+void tst_QCanvasBrush::testAssignments()
+{
+    // Same type swap should work for all brush types
+    VERIFY_SWAP(QCanvasBrush, QCanvasBrush);
+    VERIFY_SWAP(QCanvasBoxShadow, QCanvasBoxShadow);
+    VERIFY_SWAP(QCanvasCustomBrush, QCanvasCustomBrush);
+    VERIFY_SWAP(QCanvasGridPattern, QCanvasGridPattern);
+    VERIFY_SWAP(QCanvasImagePattern, QCanvasImagePattern);
+
+    // Mismatched swap should not compile
+    VERIFY_NO_SWAP(QCanvasImagePattern, QCanvasGridPattern);
+
+    // Swapping with base class should not work
+    VERIFY_NO_SWAP(QCanvasBoxShadow, QCanvasBrush);
+    VERIFY_NO_SWAP(QCanvasCustomBrush, QCanvasBrush);
+    VERIFY_NO_SWAP(QCanvasGridPattern, QCanvasBrush);
+    VERIFY_NO_SWAP(QCanvasImagePattern, QCanvasBrush);
+
+    // Swapping with derived class should not work either
+    VERIFY_NO_SWAP(QCanvasBrush, QCanvasImagePattern);
+}
+
+void tst_QCanvasBrush::testBrushRoundtrip()
+{
+    // Verify that converting to QCanvasBrush and back via as<T>() preserves all contents.
+
+    const QCanvasGradientStops stops = {
+        {0.0f, QColorConstants::Red},
+        {0.5f, QColorConstants::Green},
+        {1.0f, QColorConstants::Blue},
+    };
+
+    // QCanvasLinearGradient
+    {
+        QCanvasLinearGradient a(10, 20, 30, 40);
+        a.setStops(stops);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasLinearGradient>());
+    }
+
+    // QCanvasRadialGradient (simple)
+    {
+        QCanvasRadialGradient a(50, 100, 80, 40);
+        a.setStops(stops);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasRadialGradient>());
+    }
+
+    // QCanvasRadialGradient (extended, inner/outer centers distinct)
+    {
+        QCanvasRadialGradient a(50, 100, 40, 60, 90, 80);
+        a.setStops(stops);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasRadialGradient>());
+    }
+
+    // QCanvasConicalGradient
+    {
+        QCanvasConicalGradient a(100, 200, float(M_PI));
+        a.setStops(stops);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasConicalGradient>());
+    }
+
+    // QCanvasBoxGradient
+    {
+        QCanvasBoxGradient a(10, 20, 30, 40, 15, 5);
+        a.setStops(stops);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasBoxGradient>());
+    }
+
+    // QCanvasBoxShadow
+    {
+        QCanvasBoxShadow a(10, 20, 30, 40, 2, 5, QColorConstants::Red);
+        a.setSpread(7);
+        a.setTopLeftRadius(1);
+        a.setTopRightRadius(2);
+        a.setBottomLeftRadius(3);
+        a.setBottomRightRadius(4);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasBoxShadow>());
+
+        QCanvasBoxShadow b = a;
+        b.setSpread(8);
+        QVERIFY(a != b);
+        QVERIFY(QCanvasBrush(a) != QCanvasBrush(b));
+    }
+
+    // QCanvasGridPattern
+    {
+        QCanvasGridPattern a(10, 20, 30, 40, QColorConstants::Red, QColorConstants::Blue);
+        a.setLineWidth(3.0f);
+        a.setFeather(2.0f);
+        a.setRotation(0.5f);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasGridPattern>());
+    }
+
+    // QCanvasImagePattern
+    {
+        QCanvasImagePattern a;
+        a.setStartPosition(10, 20);
+        a.setImageSize(30, 40);
+        a.setRotation(0.5f);
+        a.setTintColor(QColorConstants::Red);
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasImagePattern>());
+    }
+
+    // QCanvasCustomBrush
+    {
+        QCanvasCustomBrush a;
+        a.setTimeRunning(true);
+        a.setData1(QVector4D(1, 2, 3, 4));
+        a.setData2(QVector4D(5, 6, 7, 8));
+        a.setData3(QVector4D(9, 10, 11, 12));
+        a.setData4(QVector4D(13, 14, 15, 16));
+        QCanvasBrush brush = a;
+        QCOMPARE(a, brush.as<QCanvasCustomBrush>());
+    }
+}
+QTEST_MAIN(tst_QCanvasBrush)
+#include <tst_qcbrush.moc>

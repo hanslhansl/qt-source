@@ -1,0 +1,332 @@
+# Copyright (C) 2026 The Qt Company Ltd.
+# SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+
+openapi: 3.1.0
+servers:
+    - url: 'http://127.0.0.1:19085/v2'
+info:
+  title: Some Test
+  description: >
+    This specification is intended for testing purposes.
+  version: 1.0.0
+tags:
+  - name: store
+    description: store test file
+  - name: farm
+    description: a farm shop
+  - name: bank
+    description: bank data
+  - name: data
+    description: data search
+
+paths:
+  /pets:
+    patch:
+      tags:
+        - store
+      operationId: patchPetData
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+        required: true
+      responses:
+        "200":
+          description: Updated
+    post:
+      tags:
+        - store
+      operationId: postPetData
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        "200":
+          description: Updated
+  /farm-pets:
+    post:
+      tags:
+        - farm
+      operationId: postFarmPet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              # here we use oneOf directly in requestBody
+              # generates 'PostFarmPet_request' model
+              oneOf:
+                - $ref: "#/components/schemas/Bunny"
+                - $ref: "#/components/schemas/Duck"
+                - $ref: "#/components/schemas/Dog"
+        required: true
+      responses:
+        "200":
+          description: Updated
+  /pay-for-pet:
+    post:
+      tags:
+        - bank
+      operationId: postPaymentData
+      requestBody:
+        content:
+          application/json:
+            schema:
+              # inline objects
+              # generates 'PostPaymentData_request' model
+              oneOf:
+              - type: object
+                required: [cardNumber]
+                properties:
+                  cardNumber:
+                    type: string
+                  cardAvailability:
+                    type: boolean
+              - type: object
+                properties:
+                  paypalEmail:
+                    type: string
+                  paypalAvailability:
+                    type: boolean
+        required: true
+      responses:
+        "200":
+          description: Updated
+    patch:
+      tags:
+        - bank
+      operationId: patchPaymentData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              # here we use oneOf directly in requestBody, but with primitive types
+              # generates 'PatchPaymentData_request' model
+              oneOf:
+                - type: string
+                - type: boolean
+                - type: number
+                  format: double
+      responses:
+        "200":
+          description: Updated
+  /banks-data:
+    post:
+      tags:
+        - data
+      operationId: postSearchData
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customer:
+                  # generates 'PostSearchData_request' model
+                  oneOf:
+                    - type: integer
+                      description: customer ID
+                    - type: string
+                      description: Phone number
+                      pattern: '^\\+?[0-9]+$'
+                    - type: object
+                      properties:
+                        userName:
+                          type: string
+                        channel:
+                          type: string
+                      required:
+                        - userName
+                    - type: object
+                      properties:
+                        customerId:
+                          type: string
+                      required:
+                        - customerId
+        required: true
+      responses:
+        "200":
+          description: Updated
+  /newAccount:
+    post:
+      tags:
+        - data
+      operationId: postAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              # generates 'PostAccount_request' model
+              oneOf:
+                # Both schemas are highly ambiguous from API perspective!
+                # But good for testing needs.
+                - $ref: '#/components/schemas/Account'
+                # map<string, jsonvalue> case.
+                - type: object
+                  additionalProperties: true
+        required: true
+      responses:
+        "200":
+          description: Updated
+  /newClient:
+    post:
+      tags:
+        - data
+      operationId: updateClientData
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Client'
+        required: true
+      responses:
+        "200":
+          description: Updated
+  /testyTest:
+    post:
+      operationId: postTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Root'
+      responses:
+              '200':
+                description: OK
+  /testyTestMap:
+    post:
+      operationId: postTestMap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RootMap'
+      responses:
+              '200':
+                description: OK
+  /testyTestMapModels:
+    post:
+      operationId: postTestMapModels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RootMapModels'
+      responses:
+              '200':
+                description: OK
+components:
+  schemas:
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+    Dog:
+      type: object
+      required:
+        - bark
+      properties:
+        bark:
+          type: boolean
+        breed:
+          type: string
+          enum: [Dingo, Husky, Retriever, Shepherd]
+    Cat:
+      type: object
+      properties:
+        hunts:
+          type: boolean
+        age:
+          type: integer
+    Bunny:
+      type: object
+      properties:
+        weight:
+          type: integer
+        breed-type:
+          type: string
+          enum: [FlemishGiant, FrenchLop, Himalayan, Havana]
+    Duck:
+      type: object
+      properties:
+        hunts:
+          type: boolean
+        age:
+          type: integer
+    Account:
+      oneOf:
+        # both objects have optional fields,
+        # we're testing ambiguity here.
+        # generates 'Account_oneOf' model
+        - type: object
+          properties:
+            name:
+              type: string
+            contractAvailable:
+              type: boolean
+        # generates 'Account_oneOf_1' model
+        - type: object
+          properties:
+            firstname:
+              type: string
+            lastname:
+              type: string
+          additionalProperties: {}
+    Client:
+        type: object
+        properties:
+          value:
+            # generates 'Client_value' model
+            oneOf:
+              - type: string
+              - type: boolean
+    DummyTestValue:
+      type: object
+      oneOf:
+        - {}
+    Root:
+      oneOf:
+        - type: integer
+        - type: array
+          items:
+            type: array
+            items:
+              type: integer
+        - $ref: '#/components/schemas/Container'
+    RootMap:
+      oneOf:
+        - type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        - type: array
+          items:
+            type: object
+            additionalProperties:
+              type: integer
+    Container:
+      oneOf:
+        - type: object
+          properties:
+            value:
+              $ref: '#/components/schemas/Duck'
+        - type: array
+          items:
+            $ref: '#/components/schemas/Dog'
+    RootMapModels:
+      oneOf:
+        - type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Dog'
+        - type: array
+          items:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/Duck'
