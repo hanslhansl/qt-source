@@ -9,8 +9,7 @@ The source is based on the Qt 6.12.0 source distribution obtained from the offic
 
 The following modifications were made to the Qt source used to build the distributed binaries:
 
-- Added `#include <vector>` to [path/to/file1]
-- Added `#include <vector>` to [path/to/file2]
+- Added `#include <vector>` to /qt-6.12.0/qttools/src/linguist/shared
 
 These changes fix build errors, they are not intended to affect behaviour.
 

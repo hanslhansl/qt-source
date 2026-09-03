@@ -4,20 +4,21 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+import traceback
 
 
 # ============================================================
 # Global configuration
 # ============================================================
 
-COMPILER_BIN = r"...\bin"
-QT_SOURCE = Path(__file__).resolve().parent / "qt-6.12.0"
+COMPILER_BIN = Path(r"...\bin")
+QT_SOURCE = Path(__file__).resolve().parent / "qt"
 BUILD_DIR = Path(__file__).resolve().parent / "build"
 INSTALL_PREFIX = Path(__file__).resolve().parent / "install"
 
 
-C_COMPILER = COMPILER_BIN + r"/clang.exe"
-CXX_COMPILER = COMPILER_BIN + r"/clang++.exe"
+C_COMPILER = COMPILER_BIN / "clang.exe"
+CXX_COMPILER = COMPILER_BIN / "clang++.exe"
 
 CMAKE_BIN = None    # None: get from PATH
 NINJA_BIN = None    # None: get from PATH
@@ -37,7 +38,7 @@ SYSTEM_PATHS = [
 def run_command(command : list[str], cwd=None, env=None):
     """Run a command and stop on failure."""
     print("\nRunning:")
-    print(" ".join(command))
+    print(" ".join(str(c) for c in command))
     print()
 
     result = subprocess.run(
@@ -81,7 +82,7 @@ def create_build_environment():
     # Add Windows system tools
     path_entries.extend(SYSTEM_PATHS)
 
-    env["PATH"] = ";".join(path_entries)
+    env["PATH"] = ";".join(str(p) for p in path_entries)
 
     return env
 
@@ -105,7 +106,7 @@ def main():
         # Configure Qt
         # ----------------------------------------------------
         configure_cmd = [
-            os.path.join(QT_SOURCE, "configure.bat"),
+            QT_SOURCE / "configure.bat",
 
             "-prefix", INSTALL_PREFIX,
 
@@ -163,7 +164,7 @@ def main():
     except Exception as e:
         print("\n")
         print("BUILD FAILED!")
-        print(e)
+        traceback.print_exc()
         input("\nPress Enter to exit...")
         sys.exit(1)
 

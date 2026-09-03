@@ -4,6 +4,7 @@
 #ifndef RELEASEHELPER_H
 #define RELEASEHELPER_H
 
+#include <vector>
 #include <QtCore/qstringlist.h>
 
 QT_BEGIN_NAMESPACE
