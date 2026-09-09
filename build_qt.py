@@ -6,26 +6,84 @@ import sys
 from pathlib import Path
 import traceback
 import json
+import argparse
 
 # ============================================================
 # Global configuration
 # ============================================================
 
-# e.g. compiler bin
-ADDITIONAL_PATHS = [
-    Path(r"...\bin")
-]
-BUILD_DIR = Path(__file__).resolve().parent / "build"
-OUTPUT_DIR = Path(__file__).resolve().parent / "out"
-QT_SOURCE = Path(__file__).resolve().parent / "qt"
+SCRIPT_DIR = Path(__file__).resolve().parent
 
-QT_NAMESPACE = None
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Build Qt using CMake/Ninja."
+    )
 
-CMAKE_BIN = None    # None: get from PATH
-NINJA_BIN = None    # None: get from PATH
+    parser.add_argument(
+        "--additional-path",
+        action="append",
+        type=Path,
+        default=[],
+        metavar="PATH",
+        help="Add a directory to PATH. Can be specified multiple times.",
+    )
 
-# Qt configure options
-QT_SUBMODULES = "qtbase,qttools"
+    parser.add_argument(
+        "--build-dir",
+        type=Path,
+        default=SCRIPT_DIR / "build",
+        metavar="PATH",
+        help="Build directory (default: %(default)s)",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=SCRIPT_DIR / "out",
+        metavar="PATH",
+        help="Output directory (default: %(default)s)",
+    )
+
+    parser.add_argument(
+        "--qt-source",
+        type=Path,
+        default=SCRIPT_DIR / "qt",
+        metavar="PATH",
+        help="Qt source directory (default: %(default)s)",
+    )
+
+    parser.add_argument(
+        "--qt-namespace",
+        default=None,
+        metavar="NAME",
+        help="Qt namespace (default: %(default)s)",
+    )
+
+    parser.add_argument(
+        "--cmake",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="CMake executable. If omitted, use PATH.",
+    )
+
+    parser.add_argument(
+        "--ninja",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Ninja executable. If omitted, use PATH.",
+    )
+
+    parser.add_argument(
+        "--qt-submodules",
+        default="qtbase,qttools",
+        metavar="MODULES",
+        help="Comma-separated Qt submodules (default: %(default)s)",
+    )
+
+    return parser.parse_args()
+
 
 SYSTEM_PATHS = [
     Path(os.environ["SystemRoot"]) / "System32",
@@ -85,20 +143,20 @@ def find_tool(tool):
         raise RuntimeError(f"{tool} not found in PATH")
     return result
 
-def create_build_environment():
+def create_build_environment(additional_paths, cmake_bin, ninja_bin):
     env = os.environ.copy()
 
-    path_entries = ADDITIONAL_PATHS.copy()
+    path_entries = additional_paths.copy()
 
     # Add explicit CMake/Ninja locations if configured
-    if CMAKE_BIN:
-        path_entries.append(CMAKE_BIN)
+    if cmake_bin:
+        path_entries.append(cmake_bin)
     else:
         cmake_path = find_tool("cmake")
         path_entries.append(os.path.dirname(cmake_path))
 
-    if NINJA_BIN:
-        path_entries.append(NINJA_BIN)
+    if ninja_bin:
+        path_entries.append(ninja_bin)
     else:
         ninja_path = find_tool("ninja")
         path_entries.append(os.path.dirname(ninja_path))
@@ -115,101 +173,104 @@ def create_build_environment():
 # ============================================================
 
 def main():
-    try:
-        # ----------------------------------------------------
-        # Prepare PATH
-        # ----------------------------------------------------
-        env = create_build_environment()
+    args = parse_args()
+    additional_paths = args.additional_path
+    build_dir = args.build_dir
+    output_dir = args.output_dir
+    qt_source = args.qt_source
+    qt_namespace = args.qt_namespace
+    cmake_bin = args.cmake
+    ninja_bin = args.ninja
+    qt_submodules = args.qt_submodules
 
-        # ----------------------------------------------------
-        # Set up directories
-        # ----------------------------------------------------
-        BUILD_DIR.mkdir( parents=True, exist_ok=True)
-        TEMP_INSTALL_DIR = OUTPUT_DIR / "temp"
 
-        # ----------------------------------------------------
-        # CMake file api request for toolchain info
-        # ----------------------------------------------------
-        request_toolchain_info(BUILD_DIR)
+    # ----------------------------------------------------
+    # Prepare PATH
+    # ----------------------------------------------------
+    env = create_build_environment(additional_paths, cmake_bin, ninja_bin)
 
-        # ----------------------------------------------------
-        # Configure Qt
-        # ----------------------------------------------------
-        configure_cmd = [
-            QT_SOURCE / "configure.bat",
+    # ----------------------------------------------------
+    # Set up directories
+    # ----------------------------------------------------
+    build_dir.mkdir( parents=True, exist_ok=True)
+    TEMP_INSTALL_DIR = output_dir / "temp"
 
-            "-prefix", TEMP_INSTALL_DIR,
+    # ----------------------------------------------------
+    # CMake file api request for toolchain info
+    # ----------------------------------------------------
+    request_toolchain_info(build_dir)
 
-            "-release",
-            "-shared", "-force-debug-info", "-separate-debug-info", # shared build
-            "-opensource",
-            "-confirm-license",
+    # ----------------------------------------------------
+    # Configure Qt
+    # ----------------------------------------------------
+    configure_cmd = [
+        qt_source / "configure.bat",
 
-            "-cmake-generator", "Ninja",
+        "-prefix", TEMP_INSTALL_DIR,
 
-            "-submodules", QT_SUBMODULES,
+        "-release",
+        "-shared", "-force-debug-info", "-separate-debug-info", # shared build
+        "-opensource",
+        "-confirm-license",
 
-            "--",
+        "-cmake-generator", "Ninja",
 
-            "-DQT_INSTALL_CONFIG_INFO_FILES=ON",
+        "-submodules", qt_submodules,
 
-            "" if QT_NAMESPACE is None else f"-DQT_NAMESPACE={QT_NAMESPACE}",
-        ]
-        run_command(configure_cmd, cwd=BUILD_DIR, env=env)
+        "--",
 
-        # ----------------------------------------------------
-        # Read the compiler CMake selected
-        # ----------------------------------------------------
-        compiler = get_cxx_compiler(BUILD_DIR)
-        compiler_id = compiler["id"]
-        compiler_version = compiler["version"]
-        toolchain_name = f"{compiler_id.lower()}-{compiler_version.split('.')[0]}"
+        "-DQT_INSTALL_CONFIG_INFO_FILES=ON",
 
-        # ----------------------------------------------------
-        # Build
-        # ----------------------------------------------------
-        run_command(
-            [
-                "cmake",
-                "--build",
-                ".",
-                "--parallel"
-            ],
-            cwd=BUILD_DIR,
-            env=env
-        )
+        "" if qt_namespace is None else f"-DQT_NAMESPACE={qt_namespace}",
+    ]
+    run_command(configure_cmd, cwd=build_dir, env=env)
 
-        # ----------------------------------------------------
-        # Install
-        # ----------------------------------------------------
-        run_command(
-            [
-                "cmake",
-                "--install",
-                "."
-            ],
-            cwd=BUILD_DIR,
-            env=env
-        )
+    # ----------------------------------------------------
+    # Read the compiler CMake selected
+    # ----------------------------------------------------
+    compiler = get_cxx_compiler(build_dir)
+    compiler_id = compiler["id"]
+    compiler_version = compiler["version"]
+    toolchain_name = f"{compiler_id.lower()}-{compiler_version.split('.')[0]}"
 
-        # ----------------------------------------------------
-        # Copy to actual install directory
-        # ----------------------------------------------------
-        FINAL_INSTALL_DIR = OUTPUT_DIR / toolchain_name
-        if FINAL_INSTALL_DIR.exists():
-            shutil.rmtree(FINAL_INSTALL_DIR)
-        TEMP_INSTALL_DIR.rename(FINAL_INSTALL_DIR)
+    # ----------------------------------------------------
+    # Build
+    # ----------------------------------------------------
+    run_command(
+        [
+            "cmake",
+            "--build",
+            ".",
+            "--parallel"
+        ],
+        cwd=build_dir,
+        env=env
+    )
 
-        print(f"\nBuild completed successfully in {FINAL_INSTALL_DIR}!")
+    # ----------------------------------------------------
+    # Install
+    # ----------------------------------------------------
+    run_command(
+        [
+            "cmake",
+            "--install",
+            "."
+        ],
+        cwd=build_dir,
+        env=env
+    )
 
-    except Exception as e:
-        print("\n")
-        print("BUILD FAILED!")
-        traceback.print_exc()
-        input("\nPress Enter to exit...")
-        sys.exit(1)
+    # ----------------------------------------------------
+    # Copy to actual install directory
+    # ----------------------------------------------------
+    FINAL_INSTALL_DIR = output_dir / toolchain_name
+    if FINAL_INSTALL_DIR.exists():
+        shutil.rmtree(FINAL_INSTALL_DIR)
+    TEMP_INSTALL_DIR.rename(FINAL_INSTALL_DIR)
 
-    input("\nPress Enter to exit...")
+    print(f"\nBuild completed successfully in {FINAL_INSTALL_DIR}!")
+
+
 
 
 if __name__ == "__main__":
