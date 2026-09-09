@@ -25,7 +25,6 @@ NINJA_BIN = None    # None: get from PATH
 
 # Qt configure options
 QT_SUBMODULES = "qtbase,qttools"
-QT_USE_ORIGINAL_COMPILER = True # if true, the generated qt.toolchain.cmake file will set C/CXX to the compiler used to build Qt itself
 
 SYSTEM_PATHS = [
     Path(os.environ["SystemRoot"]) / "System32",
@@ -151,7 +150,6 @@ def main():
 
             "--",
 
-            "-DQT_USE_ORIGINAL_COMPILER=ON" if QT_USE_ORIGINAL_COMPILER else "",
             "-DQT_INSTALL_CONFIG_INFO_FILES=ON",
         ]
         run_command(configure_cmd, cwd=BUILD_DIR, env=env)
