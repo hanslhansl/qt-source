@@ -19,6 +19,7 @@ BUILD_DIR = Path(__file__).resolve().parent / "build"
 OUTPUT_DIR = Path(__file__).resolve().parent / "out"
 QT_SOURCE = Path(__file__).resolve().parent / "qt"
 
+QT_NAMESPACE = None
 
 CMAKE_BIN = None    # None: get from PATH
 NINJA_BIN = None    # None: get from PATH
@@ -151,6 +152,8 @@ def main():
             "--",
 
             "-DQT_INSTALL_CONFIG_INFO_FILES=ON",
+
+            "" if QT_NAMESPACE is None else f"-DQT_NAMESPACE={QT_NAMESPACE}",
         ]
         run_command(configure_cmd, cwd=BUILD_DIR, env=env)
 
