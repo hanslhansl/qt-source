@@ -5,20 +5,20 @@ import subprocess
 import sys
 from pathlib import Path
 import traceback
-
+import json
 
 # ============================================================
 # Global configuration
 # ============================================================
 
-COMPILER_BIN = Path(r"...\bin")
-QT_SOURCE = Path(__file__).resolve().parent / "qt"
+# e.g. compiler bin
+ADDITIONAL_PATHS = [
+    Path(r"...\bin")
+]
 BUILD_DIR = Path(__file__).resolve().parent / "build"
-INSTALL_PREFIX = Path(__file__).resolve().parent / "install"
+OUTPUT_DIR = Path(__file__).resolve().parent / "out"
+QT_SOURCE = Path(__file__).resolve().parent / "qt"
 
-
-C_COMPILER = COMPILER_BIN / "clang.exe"
-CXX_COMPILER = COMPILER_BIN / "clang++.exe"
 
 CMAKE_BIN = None    # None: get from PATH
 NINJA_BIN = None    # None: get from PATH
@@ -28,7 +28,7 @@ QT_SUBMODULES = "qtbase,qttools"
 QT_USE_ORIGINAL_COMPILER = True # if true, the generated qt.toolchain.cmake file will set C/CXX to the compiler used to build Qt itself
 
 SYSTEM_PATHS = [
-    os.path.join(os.environ["SystemRoot"], "System32"),
+    Path(os.environ["SystemRoot"]) / "System32",
 ]
 
 # ============================================================
@@ -52,6 +52,32 @@ def run_command(command : list[str], cwd=None, env=None):
             f"Command failed with exit code {result.returncode}"
         )
 
+def request_toolchain_info(build_dir: Path):
+    query_dir = build_dir / ".cmake" / "api" / "v1" / "query" / "client-build-script"
+    query_dir.mkdir(parents=True, exist_ok=True)
+    (query_dir / "toolchains-v1").touch()
+def get_toolchain_info(build_dir: Path):
+    reply_dir = build_dir / ".cmake" / "api" / "v1" / "reply"
+
+    indexes = sorted(reply_dir.glob("index-*.json"))
+    if not indexes:
+        raise RuntimeError("No CMake File API reply index found")
+
+    index = json.loads(indexes[-1].read_text())
+
+    ref = index["reply"]["client-build-script"]["toolchains-v1"]
+    toolchains_file = reply_dir / ref["jsonFile"]
+
+    return json.loads(toolchains_file.read_text())
+def get_cxx_compiler(build_dir: Path):
+    info = get_toolchain_info(build_dir)
+
+    for toolchain in info["toolchains"]:
+        if toolchain["language"] == "CXX":
+            return toolchain["compiler"]
+
+    raise RuntimeError("No CXX toolchain found")
+
 def find_tool(tool):
     """Find a tool in the current global PATH."""
     result = shutil.which(tool)
@@ -62,9 +88,7 @@ def find_tool(tool):
 def create_build_environment():
     env = os.environ.copy()
 
-    path_entries = []
-
-    path_entries.append(COMPILER_BIN)
+    path_entries = ADDITIONAL_PATHS.copy()
 
     # Add explicit CMake/Ninja locations if configured
     if CMAKE_BIN:
@@ -98,9 +122,15 @@ def main():
         env = create_build_environment()
 
         # ----------------------------------------------------
-        # Create build directory
+        # Set up directories
         # ----------------------------------------------------
-        Path(BUILD_DIR).mkdir( parents=True, exist_ok=True)
+        BUILD_DIR.mkdir( parents=True, exist_ok=True)
+        TEMP_INSTALL_DIR = OUTPUT_DIR / "temp"
+
+        # ----------------------------------------------------
+        # CMake file api request for toolchain info
+        # ----------------------------------------------------
+        request_toolchain_info(BUILD_DIR)
 
         # ----------------------------------------------------
         # Configure Qt
@@ -108,7 +138,7 @@ def main():
         configure_cmd = [
             QT_SOURCE / "configure.bat",
 
-            "-prefix", INSTALL_PREFIX,
+            "-prefix", TEMP_INSTALL_DIR,
 
             "-release",
             "-shared", "-force-debug-info", "-separate-debug-info", # shared build
@@ -121,16 +151,18 @@ def main():
 
             "--",
 
-            f"-DCMAKE_C_COMPILER={C_COMPILER}",
-            f"-DCMAKE_CXX_COMPILER={CXX_COMPILER}",
             "-DQT_USE_ORIGINAL_COMPILER=ON" if QT_USE_ORIGINAL_COMPILER else "",
             "-DQT_INSTALL_CONFIG_INFO_FILES=ON",
-
-            # "-DCMAKE_C_COMPILER_TARGET=x86_64-w64-windows-gnu",
-            # "-DCMAKE_CXX_COMPILER_TARGET=x86_64-w64-windows-gnu",
         ]
-
         run_command(configure_cmd, cwd=BUILD_DIR, env=env)
+
+        # ----------------------------------------------------
+        # Read the compiler CMake selected
+        # ----------------------------------------------------
+        compiler = get_cxx_compiler(BUILD_DIR)
+        compiler_id = compiler["id"]
+        compiler_version = compiler["version"]
+        toolchain_name = f"{compiler_id.lower()}-{compiler_version.split('.')[0]}"
 
         # ----------------------------------------------------
         # Build
@@ -159,7 +191,15 @@ def main():
             env=env
         )
 
-        print("\nBuild completed successfully!")
+        # ----------------------------------------------------
+        # Copy to actual install directory
+        # ----------------------------------------------------
+        FINAL_INSTALL_DIR = OUTPUT_DIR / toolchain_name
+        if FINAL_INSTALL_DIR.exists():
+            shutil.rmtree(FINAL_INSTALL_DIR)
+        TEMP_INSTALL_DIR.rename(FINAL_INSTALL_DIR)
+
+        print(f"\nBuild completed successfully in {FINAL_INSTALL_DIR}!")
 
     except Exception as e:
         print("\n")
